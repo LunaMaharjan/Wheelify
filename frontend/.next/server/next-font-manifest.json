@@ -1,0 +1,13 @@
+{
+  "app": {
+    "[project]/app/(main)/page": [
+      "static/media/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y-s.p.33f50665.woff2"
+    ],
+    "[project]/app/_not-found/page": [
+      "static/media/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y-s.p.33f50665.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}
