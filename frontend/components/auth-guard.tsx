@@ -3,6 +3,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { getProfile } from '@/lib/api';
 
 interface AuthGuardProps {
     children: ReactNode;
@@ -40,21 +41,12 @@ export function AuthGuard({
     const pathname = usePathname();
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [user, setUser] = useState<{ role?: string } | null>(null);
 
     useEffect(() => {
-        const checkAuth = () => {
-            // Check if user has JWT token
-            const token = localStorage.getItem('token');
-            const hasToken = !!token;
+        let isMounted = true;
 
-            // Check if user has Laravel session cookies
-            const hasSession = document.cookie.includes('laravel_session') &&
-                document.cookie.includes('XSRF-TOKEN');
-
-            const authenticated = hasToken || hasSession;
-            setIsAuthenticated(authenticated);
-
-            // Determine if this route needs protection
+        const evaluateRouteAccess = (authenticated: boolean, role?: string) => {
             const isProtectedRoute = PROTECTED_ROUTES.some(route =>
                 pathname.startsWith(route)
             );
@@ -63,51 +55,26 @@ export function AuthGuard({
                 pathname.startsWith(route)
             );
 
-            // Handle protected routes (require authentication)
             if (isProtectedRoute && !authenticated) {
+                setIsLoading(false);
                 router.push('/login');
                 return;
             }
 
-            // Check admin role for admin routes
             if (isProtectedRoute && authenticated && pathname.startsWith('/admin')) {
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    try {
-                        const user = JSON.parse(userData);
-                        if (user.role_id !== 1) {
-                            // User is not admin, redirect to home
-                            router.push('/');
-                            return;
-                        }
-                    } catch {
-                        // If user data is invalid, redirect to home
-                        router.push('/');
-                        return;
-                    }
-                } else {
-                    // No user data, redirect to home
+                if (role !== 'admin') {
+                    setIsLoading(false);
                     router.push('/');
                     return;
                 }
             }
 
-            // Handle public routes (redirect if already authenticated)
             if (isPublicRoute && authenticated) {
-                // Check user role to determine redirect destination
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    try {
-                        const user = JSON.parse(userData);
-                        if (user.role_id === 1) { // Assuming role_id 1 is admin
-                            router.push('/admin');
-                        } else {
-                            router.push('/');
-                        }
-                    } catch {
-                        router.push('/');
-                    }
+                if (role === 'admin') {
+                    setIsLoading(false);
+                    router.push('/admin');
                 } else {
+                    setIsLoading(false);
                     router.push('/');
                 }
                 return;
@@ -116,7 +83,32 @@ export function AuthGuard({
             setIsLoading(false);
         };
 
+        const checkAuth = async () => {
+            setIsLoading(true);
+            try {
+                const data = await getProfile();
+                if (!isMounted) return;
+                if (data?.user) {
+                    setUser(data.user);
+                    setIsAuthenticated(true);
+                    evaluateRouteAccess(true, data.user.role);
+                } else {
+                    setUser(null);
+                    setIsAuthenticated(false);
+                    evaluateRouteAccess(false);
+                }
+            } catch (error) {
+                if (!isMounted) return;
+                setUser(null);
+                setIsAuthenticated(false);
+                evaluateRouteAccess(false);
+            }
+        };
+
         checkAuth();
+        return () => {
+            isMounted = false;
+        };
     }, [pathname, router]);
 
     // Show loading spinner while checking authentication

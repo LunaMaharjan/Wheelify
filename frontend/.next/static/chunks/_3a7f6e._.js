@@ -11,7 +11,7 @@ __turbopack_esm__({
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/next/dist/build/polyfills/process.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axios$2f$lib$2f$axios$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/axios/lib/axios.js [app-client] (ecmascript)");
 ;
-const baseURL = ("TURBOPACK compile-time value", "localhost:8002");
+const baseURL = ("TURBOPACK compile-time value", "http://localhost:8002");
 if ("TURBOPACK compile-time falsy", 0) {
     "TURBOPACK unreachable";
 }
@@ -40,34 +40,13 @@ const getCsrfToken = async ()=>{
 // Main axios instance with interceptors
 const axiosInstance = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axios$2f$lib$2f$axios$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].create({
     baseURL: `${baseURL}/api`,
-    timeout: 1000000,
+    timeout: 100000,
     withCredentials: true,
     headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "X-Requested-With": "XMLHttpRequest"
     }
-});
-// Request interceptor to add CSRF token and authorization header
-axiosInstance.interceptors.request.use(async (config)=>{
-    // Get CSRF token for non-GET requests
-    if (config.method !== 'get' && config.method !== 'GET') {
-        const token = await getCsrfToken();
-        if (token) {
-            config.headers['X-XSRF-TOKEN'] = token;
-        }
-    }
-    // Add authorization header if token exists (client-only)
-    if ("TURBOPACK compile-time truthy", 1) {
-        const authToken = localStorage.getItem("authToken") || localStorage.getItem("token");
-        if (authToken) {
-            config.headers.Authorization = `Bearer ${authToken}`;
-        }
-    }
-    return config;
-}, (error)=>{
-    console.error("Failed to add token to request header:", error);
-    return Promise.reject(error);
 });
 // Guard to avoid multiple redirects firing at once
 let isHandlingUnauthorized = false;

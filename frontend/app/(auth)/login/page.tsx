@@ -4,18 +4,14 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Building2, Eye, EyeOff, Home, MapPin, Users } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
-import axiosInstance from "@/lib/axiosInstance"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuthGuard } from "@/hooks/use-auth-guard"
 import { AuthGuard } from "@/components/auth-guard"
-import logo3 from "@/assets/branding/logo3.png"
 import { toast } from "sonner"
-import EmailVerificationDialog from "@/components/EmailVerificationDialog"
+import { resendVerification, login as loginRequest } from "@/lib/api"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -45,13 +41,13 @@ function LoginPage() {
         setIsLoading(true);
 
         try {
-            const result = await axiosInstance.post("/login", {
+            const result = await loginRequest({
                 email: email,
                 password: password
             });
 
-            // Store user data and token using the auth hook
-            authLogin(result.data.user, result.data.token);
+            // Store user data using the auth hook
+            authLogin(result.user);
 
             // If next is provided, redirect there; otherwise go home
             const nextParam = searchParams?.get('next') || '';
@@ -77,8 +73,8 @@ function LoginPage() {
 
             // Handle specific error cases
             const data = err.response?.data;
-            if (data?.verification_required === true) {
-                // Unverified email: show resend + OTP dialog
+            if (data?.verification_required === true || data?.message?.toLowerCase()?.includes("verify")) {
+                // Unverified email: show resend verification dialog
                 toast.message(data?.message || "Please verify your email")
                 setShowVerifyDialog(true);
             } else if (err.response?.status === 422) {
@@ -118,7 +114,7 @@ function LoginPage() {
                     
                     </div>
                 <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/20 backdrop-blur-sm">
-                    <div className="flex min-h-[600px]">
+                    <div className="flex">
                         {/* Login Form - Centered */}
                         <div className="w-full flex flex-col">
                             <div className="flex-1 p-8 lg:p-8">
@@ -245,12 +241,34 @@ function LoginPage() {
                 </div>
             </div>
         </div>
-        <EmailVerificationDialog
-            open={showVerifyDialog}
-            onOpenChange={setShowVerifyDialog}
-            email={email}
-            autoResend
-        />
+        <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Email Verification Required</DialogTitle>
+                    <DialogDescription>
+                        Please verify your email address before logging in. We've sent a verification link to <span className="font-medium text-foreground">{email}</span>.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={async () => {
+                            try {
+                                await resendVerification(email)
+                                toast.success("Verification email sent successfully")
+                            } catch (err: any) {
+                                toast.error(err?.response?.data?.message || "Failed to resend verification email")
+                            }
+                        }}
+                    >
+                        Resend Verification Email
+                    </Button>
+                    <Button onClick={() => setShowVerifyDialog(false)}>
+                        Close
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         </>
     )
 }

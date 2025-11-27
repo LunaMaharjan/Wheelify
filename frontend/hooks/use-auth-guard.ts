@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import axiosInstance from '../lib/axiosInstance';
+import { getProfile, logout as logoutRequest } from '@/lib/api';
 
 interface User {
-    id: number;
+    id: string;
     name: string;
     email: string;
-    role_id: number;
-    is_active: number;
+    role: 'user' | 'vendor' | 'admin';
+    image?: string;
+    contact?: string;
+    address?: string;
+    isAccountVerified: boolean;
 }
 
 export function useAuthGuard() {
@@ -16,66 +19,43 @@ export function useAuthGuard() {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    useEffect(() => {
-        checkAuthStatus();
+    const fetchProfile = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await getProfile();
+            if (data?.user) {
+                setUser(data.user);
+                setIsAuthenticated(true);
+            } else {
+                setUser(null);
+                setIsAuthenticated(false);
+            }
+        } catch (error) {
+            setUser(null);
+            setIsAuthenticated(false);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
-    const checkAuthStatus = () => {
-        // Check if user has JWT token
-        const token = localStorage.getItem('token');
-        const hasToken = !!token;
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
 
-        // Check if user has Laravel session cookies
-        const hasSession = document.cookie.includes('laravel_session') &&
-            document.cookie.includes('XSRF-TOKEN');
-
-        const authenticated = hasToken || hasSession;
-        setIsAuthenticated(authenticated);
-
-        // Get user data if available
-        if (authenticated) {
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                try {
-                    const user = JSON.parse(userData);
-                    setUser(user);
-                } catch {
-                    console.error('Failed to parse user data');
-                }
-            }
-        }
-
-        setIsLoading(false);
-    };
-
-    const login = (userData: User, token: string) => {
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', token);
-        setIsAuthenticated(true);
+    const login = (userData: User) => {
         setUser(userData);
+        setIsAuthenticated(true);
     };
 
     const logout = async () => {
         try {
-            await axiosInstance.post('/logout');
+            await logoutRequest();
         } catch (error) {
             console.error('Backend logout failed:', error);
-            // Continue with local logout even if backend fails
         }
 
-        // Clear local storage
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-
-        // Clear Laravel session cookies
-        document.cookie = "laravel_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-        // Update local state
         setIsAuthenticated(false);
         setUser(null);
-
-        // Redirect to login
         router.push('/login');
     };
 
@@ -89,32 +69,31 @@ export function useAuthGuard() {
 
     const requireGuest = (redirectTo: string = '/') => {
         if (isAuthenticated && !isLoading) {
-            // All authenticated users go to home route after login
             router.push(redirectTo);
             return false;
         }
         return true;
     };
 
-    const isAdmin = () => {
-        return user?.role_id === 1;
-    };
-
-    const isAgent = () => {
-        return user?.role_id === 2; // role_id 2 is agent
-    };
-
-    const isUser = () => {
-        return user?.role_id === 3; // role_id 3 is regular user
-    };
+    const isAdmin = () => user?.role === 'admin';
+    const isAgent = () => user?.role === 'vendor';
+    const isUser = () => user?.role === 'user';
 
     const requireAdmin = (redirectTo: string = '/') => {
-        if (!isAuthenticated || !isLoading) {
-            if (user?.role_id !== 1) {
-                router.push(redirectTo);
-                return false;
-            }
+        if (isLoading) {
+            return true;
         }
+
+        if (!isAuthenticated) {
+            router.push(redirectTo);
+            return false;
+        }
+
+        if (user?.role !== 'admin') {
+            router.push(redirectTo);
+            return false;
+        }
+
         return true;
     };
 
@@ -130,6 +109,6 @@ export function useAuthGuard() {
         isAdmin,
         isAgent,
         isUser,
-        checkAuthStatus,
+        checkAuthStatus: fetchProfile,
     };
 }
