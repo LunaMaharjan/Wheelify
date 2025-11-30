@@ -56,14 +56,49 @@ const Navbar = () => {
                             </Link>
                         </div>
                     </div>
-                    {/* Submit Property Button */}
+                    {/* Authentication Buttons */}
                     <div className="hidden md:flex items-center space-x-4">
-                                <Link
-                                    href="/login"
-                                    className="bg-primary hover:primary/95 text-white px-6 py-3 rounded-md text-sm font-bold transition-colors"
-                                >
-                                    Login
-                                </Link>
+                        {!isLoading && (
+                            <>
+                                {isAuthenticated ? (
+                                    <div className="flex items-center space-x-4">
+                                        <Link
+                                            href={isAdmin() ? "/admin" : "/profile"}
+                                            className="flex items-center space-x-2 text-sm font-medium hover:text-primary transition-colors"
+                                        >
+                                            <User className="h-4 w-4" />
+                                            <span>{user?.name}</span>
+                                        </Link>
+                                        <Button
+                                            onClick={handleLogout}
+                                            variant="destructive"
+                                            size="sm"
+                                            disabled={isLoggingOut}
+                                            className="flex items-center space-x-2"
+                                        >
+                                            {isLoggingOut ? (
+                                                <>
+                                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                                                    <span>Logging out...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <LogOut className="h-4 w-4" />
+                                                    <span>Logout</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Link
+                                        href="/login"
+                                        className="bg-primary hover:bg-primary/95 text-white px-6 py-3 rounded-md text-sm font-bold transition-colors"
+                                    >
+                                        Login
+                                    </Link>
+                                )}
+                            </>
+                        )}
                     </div>
 
                     {/* Mobile menu button */}
@@ -109,7 +144,6 @@ const Navbar = () => {
                                 Blog
                             </Link>
                            
-{/* 
                             {/* Mobile Only: Login/Register */}
                             <div className="flex flex-col gap-2 mt-6 border-t border-gray-100 pt-6">
                                 {/* Authentication Section */}
@@ -121,11 +155,14 @@ const Navbar = () => {
                                                 <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 text-gray-800 font-medium">
                                                     <User className="h-4 w-4" />
                                                     <span className="text-sm">Hi, {user?.name}</span>
-
                                                 </div>
-                                                <div className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 text-gray-800 font-medium">
-                                                    <Link href={isAdmin() ? "/admin" : "/profile"} className="text-sm">Go to {isAdmin() ? "Admin" : "Profile"}</Link>
-                                                </div>
+                                                <Link
+                                                    href={isAdmin() ? "/admin" : "/profile"}
+                                                    className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 text-gray-800 font-medium hover:bg-gray-100 transition"
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                >
+                                                    <span className="text-sm">Go to {isAdmin() ? "Admin" : "Profile"}</span>
+                                                </Link>
                                                 {/* Logout Button */}
                                                 <Button
                                                     onClick={handleLogout}

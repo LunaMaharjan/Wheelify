@@ -1,6 +1,6 @@
 {
   "app": {
-    "[project]/app/profile/page": [
+    "[project]/app/(main)/page": [
       "static/media/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y-s.p.33f50665.woff2"
     ],
     "[project]/app/_not-found/page": [
@@ -9,7 +9,7 @@
     "[project]/app/(auth)/login/page": [
       "static/media/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y-s.p.33f50665.woff2"
     ],
-    "[project]/app/(main)/page": [
+    "[project]/app/(auth)/signup/page": [
       "static/media/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y-s.p.33f50665.woff2"
     ],
     "[project]/app/(dashboard)/profile/page": [

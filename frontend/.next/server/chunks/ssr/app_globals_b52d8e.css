@@ -3615,6 +3615,10 @@ h3 {
   background-color: #fff3;
 }
 
+.hover\:bg-primary\/95:hover {
+  background-color: hsl(var(--primary) / .95);
+}
+
 .hover\:text-accent-foreground:hover {
   color: hsl(var(--accent-foreground));
 }
