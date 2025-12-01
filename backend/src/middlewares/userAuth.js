@@ -1,11 +1,21 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
+const buildCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === "production";
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        path: "/",
+    };
+};
+
 const userAuth = async (req, res, next) => {
-    const { token } = req.cookies;
+    const { token } = req.cookies || {};
 
     if (!token) {
-        return res.json({ success: false, message: "Not Authorized. Login Again" });
+        return res.status(401).json({ success: false, message: "Not authorized. Login again." });
     }
 
     try {
@@ -29,7 +39,19 @@ const userAuth = async (req, res, next) => {
         next();
     } catch (error) {
         console.error("❌ Auth Middleware Error:", error.message);
-        return res.json({ success: false, message: error.message });
+
+        // Clear the invalid cookie to stop clients from reusing bad tokens
+        res.clearCookie("token", { ...buildCookieOptions(), maxAge: 0 });
+
+        const statusCode = error.name === "JsonWebTokenError" || error.name === "TokenExpiredError" ? 401 : 500;
+        const message =
+            error.name === "TokenExpiredError"
+                ? "Session expired. Please login again."
+                : error.name === "JsonWebTokenError"
+                ? "Invalid token. Please login again."
+                : "Authentication failed.";
+
+        return res.status(statusCode).json({ success: false, message });
     }
 };
 

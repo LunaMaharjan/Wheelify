@@ -27,5 +27,4 @@ dist-ssr
 
 
 # nextjs
-
-frontend/.next
+.next
