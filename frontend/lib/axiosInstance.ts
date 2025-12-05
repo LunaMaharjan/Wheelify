@@ -16,28 +16,11 @@ const axiosInstance = axios.create({
     },
 });
 
-let isHandlingUnauthorized = false;
-
 axiosInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const status = error?.response?.status;
-        if (status === 401 && typeof window !== "undefined") {
-            if (!isHandlingUnauthorized) {
-                isHandlingUnauthorized = true;
-                try {
-                    const currentPath = window.location.pathname;
-                    if (!currentPath.startsWith("/login")) {
-                        const redirect = encodeURIComponent(window.location.href);
-                        window.location.href = `/login?next=${redirect}`;
-                    }
-                } finally {
-                    setTimeout(() => {
-                        isHandlingUnauthorized = false;
-                    }, 1500);
-                }
-            }
-        }
+        // Let layouts handle authentication redirects
+        // Don't redirect here - let the route-specific layouts decide
         return Promise.reject(error);
     }
 );

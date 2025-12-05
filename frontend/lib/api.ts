@@ -43,3 +43,50 @@ export const getProfile = async () => {
     return response.data;
 };
 
+// Admin API - Dashboard Stats
+export const getDashboardStats = async () => {
+    const response = await axiosInstance.get("/admin/stats");
+    return response.data;
+};
+
+// Admin API - Users
+export const getAllUsers = async () => {
+    const response = await axiosInstance.get("/admin/users");
+    return response.data;
+};
+
+export const deleteUser = async (userId: string) => {
+    const response = await axiosInstance.delete(`/admin/users/${userId}`);
+    return response.data;
+};
+
+export const toggleUserVerification = async (userId: string, isAccountVerified: boolean) => {
+    const response = await axiosInstance.patch(`/admin/users/${userId}/verification`, {
+        isAccountVerified,
+    });
+    return response.data;
+};
+
+// Admin API - Vendors
+export const getAllVendors = async () => {
+    const response = await axiosInstance.get("/admin/vendors");
+    return response.data;
+};
+
+export const approveVendor = async (vendorId: string) => {
+    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/approve`);
+    return response.data;
+};
+
+export const rejectVendor = async (vendorId: string) => {
+    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/reject`);
+    return response.data;
+};
+
+export const toggleVendorVerification = async (vendorId: string, isAccountVerified: boolean) => {
+    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/verification`, {
+        isAccountVerified,
+    });
+    return response.data;
+};
+

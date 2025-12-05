@@ -1,0 +1,327 @@
+import User from "../models/user.model.js";
+
+// Get dashboard statistics
+export const getDashboardStats = async (req, res) => {
+    try {
+        const totalUsers = await User.countDocuments({ role: "user" });
+        const totalVendors = await User.countDocuments({ role: "vendor" });
+        const verifiedUsers = await User.countDocuments({
+            role: "user",
+            isAccountVerified: true,
+        });
+        const pendingVendors = await User.countDocuments({
+            role: "vendor",
+            isAccountVerified: false,
+        });
+
+        return res.status(200).json({
+            success: true,
+            stats: {
+                totalUsers,
+                totalVendors,
+                verifiedUsers,
+                pendingVendors,
+            },
+        });
+    } catch (error) {
+        console.error("Get dashboard stats error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch dashboard statistics",
+        });
+    }
+};
+
+// Get all users
+export const getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find({ role: "user" })
+            .select("-password -verificationToken -verificationTokenExpireAt")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            users,
+        });
+    } catch (error) {
+        console.error("Get all users error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch users",
+        });
+    }
+};
+
+// Delete a user
+export const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "User ID is required",
+            });
+        }
+
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Prevent deleting admin users
+        if (user.role === "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Cannot delete admin users",
+            });
+        }
+
+        await User.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: "User deleted successfully",
+        });
+    } catch (error) {
+        console.error("Delete user error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to delete user",
+        });
+    }
+};
+
+// Toggle user verification
+export const toggleUserVerification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isAccountVerified } = req.body;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "User ID is required",
+            });
+        }
+
+        const user = await User.findById(id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        if (typeof isAccountVerified !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: "isAccountVerified must be a boolean",
+            });
+        }
+
+        user.isAccountVerified = isAccountVerified;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `User ${isAccountVerified ? "verified" : "unverified"} successfully`,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                isAccountVerified: user.isAccountVerified,
+            },
+        });
+    } catch (error) {
+        console.error("Toggle user verification error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to update user verification",
+        });
+    }
+};
+
+// Get all vendors
+export const getAllVendors = async (req, res) => {
+    try {
+        const vendors = await User.find({ role: "vendor" })
+            .select("-password -verificationToken -verificationTokenExpireAt")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            vendors,
+        });
+    } catch (error) {
+        console.error("Get all vendors error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch vendors",
+        });
+    }
+};
+
+// Approve a vendor
+export const approveVendor = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor ID is required",
+            });
+        }
+
+        const vendor = await User.findById(id);
+
+        if (!vendor) {
+            return res.status(404).json({
+                success: false,
+                message: "Vendor not found",
+            });
+        }
+
+        if (vendor.role !== "vendor") {
+            return res.status(400).json({
+                success: false,
+                message: "User is not a vendor",
+            });
+        }
+
+        vendor.isAccountVerified = true;
+        await vendor.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Vendor approved successfully",
+            vendor: {
+                id: vendor._id,
+                name: vendor.name,
+                email: vendor.email,
+                role: vendor.role,
+                isAccountVerified: vendor.isAccountVerified,
+            },
+        });
+    } catch (error) {
+        console.error("Approve vendor error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to approve vendor",
+        });
+    }
+};
+
+// Reject a vendor
+export const rejectVendor = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor ID is required",
+            });
+        }
+
+        const vendor = await User.findById(id);
+
+        if (!vendor) {
+            return res.status(404).json({
+                success: false,
+                message: "Vendor not found",
+            });
+        }
+
+        if (vendor.role !== "vendor") {
+            return res.status(400).json({
+                success: false,
+                message: "User is not a vendor",
+            });
+        }
+
+        // Option 1: Just unverify them
+        vendor.isAccountVerified = false;
+        await vendor.save();
+
+        // Option 2: Delete the vendor (uncomment if you want to delete instead)
+        // await User.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: "Vendor rejected successfully",
+        });
+    } catch (error) {
+        console.error("Reject vendor error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to reject vendor",
+        });
+    }
+};
+
+// Toggle vendor verification
+export const toggleVendorVerification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isAccountVerified } = req.body;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor ID is required",
+            });
+        }
+
+        const vendor = await User.findById(id);
+
+        if (!vendor) {
+            return res.status(404).json({
+                success: false,
+                message: "Vendor not found",
+            });
+        }
+
+        if (vendor.role !== "vendor") {
+            return res.status(400).json({
+                success: false,
+                message: "User is not a vendor",
+            });
+        }
+
+        if (typeof isAccountVerified !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: "isAccountVerified must be a boolean",
+            });
+        }
+
+        vendor.isAccountVerified = isAccountVerified;
+        await vendor.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Vendor ${isAccountVerified ? "verified" : "unverified"} successfully`,
+            vendor: {
+                id: vendor._id,
+                name: vendor.name,
+                email: vendor.email,
+                role: vendor.role,
+                isAccountVerified: vendor.isAccountVerified,
+            },
+        });
+    } catch (error) {
+        console.error("Toggle vendor verification error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to update vendor verification",
+        });
+    }
+};
