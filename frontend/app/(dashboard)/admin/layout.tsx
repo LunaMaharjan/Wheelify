@@ -89,7 +89,7 @@ export default function AdminLayout({
                             W
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold">Wheelify</span>
+                            <Link href="/" className="text-sm font-semibold">Wheelify</Link>
                             <span className="text-xs text-muted-foreground">Admin Panel</span>
                         </div>
                     </div>

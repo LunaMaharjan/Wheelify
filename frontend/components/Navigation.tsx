@@ -6,7 +6,7 @@ import { ChevronDown, Home, HomeIcon, LogOut, User } from 'lucide-react';
 import Image from "next/image";
 import { useAuthGuard } from "../hooks/use-auth-guard";
 import { Button } from "../components/ui/button";
-// import Logo from "@/assets/branding/logo.png";
+import Logo from "@/assets/branding/logo.png";
 import { usePathname } from 'next/navigation'
 
 const Navbar = () => {
@@ -39,22 +39,34 @@ const Navbar = () => {
                     {/* Logo */}
                     <div className="flex items-center">
                         <Link href="/" className="flex items-center space-x-2">
-                            {/* <Image src={Logo} alt="Logo" width={200} height={200} priority /> */}
+                            <Image src={Logo} alt="Wheelify Logo" width={120} height={40} priority className="h-8 w-auto" />
+                            <span className="text-2xl font-bold">Wheelify</span>
                         </Link>
                     </div>
 
                     {/* Navigation Menu */}
                     <div className="hidden md:flex items-center space-x-8">
-                        {/* Home Dropdown */}
-                        <div className="relative group">
-                            <Link
-                                href="/"
-                                className={`${isActive('/') ? 'text-primary' : ''} hover:text-primary px-3 py-4 rounded-md text-sm font-medium transition-colors relative block group`}
-                            >
-                                <span>Home</span>
-                                <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
-                            </Link>
-                        </div>
+                        <Link
+                            href="/"
+                            className={`${isActive('/') ? 'text-primary' : ''} hover:text-primary px-3 py-4 rounded-md text-sm font-medium transition-colors relative block group`}
+                        >
+                            <span>Home</span>
+                            <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+                        </Link>
+                        <Link
+                            href="/rent"
+                            className={`${isActive('/rent') ? 'text-primary' : ''} hover:text-primary px-3 py-4 rounded-md text-sm font-medium transition-colors relative block group`}
+                        >
+                            <span>Rent</span>
+                            <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/rent') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+                        </Link>
+                        <Link
+                            href="/sell"
+                            className={`${isActive('/sell') ? 'text-primary' : ''} hover:text-primary px-3 py-4 rounded-md text-sm font-medium transition-colors relative block group`}
+                        >
+                            <span>Sell</span>
+                            <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/sell') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+                        </Link>
                     </div>
                     {/* Authentication Buttons */}
                     <div className="hidden md:flex items-center space-x-4">
@@ -90,12 +102,18 @@ const Navbar = () => {
                                         </Button>
                                     </div>
                                 ) : (
-                                    <Link
-                                        href="/login"
-                                        className="bg-primary hover:bg-primary/95 text-white px-6 py-3 rounded-md text-sm font-bold transition-colors"
-                                    >
-                                        Login
-                                    </Link>
+                                    <>
+                                        <Link href="/signup">
+                                            <Button variant="default" size="sm">
+                                                Sign up
+                                            </Button>
+                                        </Link>
+                                        <Link href="/login">
+                                            <Button variant="outline" size="sm">
+                                                Log in
+                                            </Button>
+                                        </Link>
+                                    </>
                                 )}
                             </>
                         )}
@@ -125,23 +143,40 @@ const Navbar = () => {
                 {isMobileMenuOpen && (
                     <div className="md:hidden bg-white border-t border-gray-100">
                         <div className="px-2 pt-2 pb-3 space-y-1">
-                            {/* Mobile Home Link  */}
                             <Link
-                                href="/"
-                                className={`block ${isActive('/') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
+                                href="/rent"
+                                className={`block ${isActive('/rent') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
-                                Home
+                                Rent
                             </Link>
-
-
-                            {/* Mobile Blog Link */}
                             <Link
-                                href="/blog"
-                                className={`block ${isActive('/blog') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
+                                href="/sell"
+                                className={`block ${isActive('/sell') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
-                                Blog
+                                Sell
+                            </Link>
+                            <Link
+                                href="/ride"
+                                className={`block ${isActive('/ride') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Ride
+                            </Link>
+                            <Link
+                                href="/eat"
+                                className={`block ${isActive('/eat') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Eat
+                            </Link>
+                            <Link
+                                href="/help"
+                                className={`block ${isActive('/help') ? 'text-primary bg-gray-50' : ''} hover:text-primary hover:bg-gray-50 px-3 py-4 rounded-md text-base font-medium transition-colors`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Help
                             </Link>
                            
                             {/* Mobile Only: Login/Register */}
