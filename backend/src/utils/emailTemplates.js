@@ -152,6 +152,44 @@ const emailTemplates = {
     <p style="color: #64748b; font-size: 14px; margin-top: 20px;">You can submit a new application after addressing the issues mentioned above.</p>
     <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
   </div>
+  `,
+  vendorApplicationSubmittedAdmin: (userName, userEmail, reviewLink) => `
+  <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+    <h2 style="color: #1d4ed8;">New Vendor Application Submitted - Wheelify</h2>
+    <p>Hello Admin,</p>
+    <p>A new vendor application has been submitted and requires your review.</p>
+    <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1d4ed8;">
+      <p style="margin: 0 0 8px 0; font-weight: 600; color: #1e293b;">Applicant Details:</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Name:</strong> ${userName || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Email:</strong> ${userEmail || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+    </div>
+    <div style="margin: 20px 0;">
+      <a href="${reviewLink}" style="display: inline-block; background: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Review Application</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please review the application and approve or reject it with appropriate feedback.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated notification. Please do not reply directly to this email.</p>
+  </div>
+  `,
+  newUserSignupAdmin: (userName, userEmail, userContact, userAddress, viewUsersLink) => `
+  <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+    <h2 style="color: #1d4ed8;">New User Signup - Wheelify</h2>
+    <p>Hello Admin,</p>
+    <p>A new user has signed up on Wheelify.</p>
+    <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1d4ed8;">
+      <p style="margin: 0 0 8px 0; font-weight: 600; color: #1e293b;">User Details:</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Name:</strong> ${userName || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Email:</strong> ${userEmail || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Contact:</strong> ${userContact || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Address:</strong> ${userAddress || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Signed up:</strong> ${new Date().toLocaleString()}</p>
+    </div>
+    <div style="margin: 20px 0;">
+      <a href="${viewUsersLink}" style="display: inline-block; background: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Users</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">The user will need to verify their email before they can log in.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated notification. Please do not reply directly to this email.</p>
+  </div>
   `
 };
 
@@ -206,6 +244,14 @@ const sendEmail = async (email, type, data) => {
         'vendor-rejected': {
             subject: 'Vendor Application Rejected - Wheelify',
             template: emailTemplates.vendorRejected(data.vendorName, data.message)
+        },
+        'vendor-application-submitted-admin': {
+            subject: 'New Vendor Application Submitted - Wheelify',
+            template: emailTemplates.vendorApplicationSubmittedAdmin(data.userName, data.userEmail, data.reviewLink)
+        },
+        'new-user-signup-admin': {
+            subject: 'New User Signup - Wheelify',
+            template: emailTemplates.newUserSignupAdmin(data.userName, data.userEmail, data.userContact, data.userAddress, data.viewUsersLink)
         }
     };
 

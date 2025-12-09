@@ -141,6 +141,31 @@ export const signup = async (req, res) => {
             // Don't fail the signup if email fails, but log it
         }
 
+        // Send email notification to all admins
+        try {
+            const admins = await User.find({ role: "admin" }).select("email");
+            const viewUsersLink = `${getFrontendUrl()}/admin/users`;
+            
+            // Send email to each admin
+            const emailPromises = admins.map(admin => 
+                sendEmail(admin.email, "new-user-signup-admin", {
+                    userName: user.name,
+                    userEmail: user.email,
+                    userContact: user.contact,
+                    userAddress: user.address,
+                    viewUsersLink: viewUsersLink
+                }).catch(error => {
+                    console.error(`Failed to send email to admin ${admin.email}:`, error);
+                    // Don't throw - continue with other admins
+                })
+            );
+            
+            await Promise.allSettled(emailPromises);
+        } catch (emailError) {
+            console.error("Error sending admin notification emails:", emailError);
+            // Don't fail the signup if admin email fails, but log it
+        }
+
         res.status(201).json({
             success: true,
             message: "Account created successfully. Please check your email to verify your account.",

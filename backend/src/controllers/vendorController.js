@@ -2,6 +2,7 @@ import VendorApplication from "../models/vendorApplication.model.js";
 import Vehicle from "../models/vehicle.model.js";
 import Rental from "../models/rental.model.js";
 import User from "../models/user.model.js";
+import sendEmail from "../utils/emailTemplates.js";
 
 // Submit vendor application
 export const submitApplication = async (req, res) => {
@@ -27,9 +28,19 @@ export const submitApplication = async (req, res) => {
         }
 
         // Parse otherDocuments if it's a string (from form data)
+        const { otherDocuments } = req.body;
         let documentsArray = [];
         if (otherDocuments) {
             documentsArray = Array.isArray(otherDocuments) ? otherDocuments : [otherDocuments];
+        }
+
+        // Get user details for email
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
         }
 
         // Create application
@@ -45,6 +56,29 @@ export const submitApplication = async (req, res) => {
             role: "vendor",
             isAccountVerified: false
         });
+
+        // Send email notification to all admins
+        try {
+            const admins = await User.find({ role: "admin" }).select("email");
+            const reviewLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/admin/vendors`;
+            
+            // Send email to each admin
+            const emailPromises = admins.map(admin => 
+                sendEmail(admin.email, "vendor-application-submitted-admin", {
+                    userName: user.name,
+                    userEmail: user.email,
+                    reviewLink: reviewLink
+                }).catch(error => {
+                    console.error(`Failed to send email to admin ${admin.email}:`, error);
+                    // Don't throw - continue with other admins
+                })
+            );
+            
+            await Promise.allSettled(emailPromises);
+        } catch (emailError) {
+            console.error("Error sending admin notification emails:", emailError);
+            // Don't fail the application submission if email fails
+        }
 
         return res.status(201).json({
             success: true,
