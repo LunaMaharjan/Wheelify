@@ -1,4 +1,6 @@
 import User from "../models/user.model.js";
+import VendorApplication from "../models/vendorApplication.model.js";
+import sendEmail from "../utils/emailTemplates.js";
 
 // Get dashboard statistics
 export const getDashboardStats = async (req, res) => {
@@ -172,6 +174,8 @@ export const getAllVendors = async (req, res) => {
 export const approveVendor = async (req, res) => {
     try {
         const { id } = req.params;
+        const { message } = req.body || {};
+        const adminId = req.userId;
 
         if (!id) {
             return res.status(400).json({
@@ -196,8 +200,29 @@ export const approveVendor = async (req, res) => {
             });
         }
 
+        // Update vendor status
         vendor.isAccountVerified = true;
         await vendor.save();
+
+        // Update application status
+        const application = await VendorApplication.findOne({ userId: id });
+        if (application) {
+            application.status = "approved";
+            application.reviewedBy = adminId;
+            application.reviewedAt = new Date();
+            await application.save();
+        }
+
+        // Send approval email
+        try {
+            await sendEmail(vendor.email, "vendor-approved", {
+                vendorName: vendor.name,
+                message: message || "Your vendor application has been approved. You can now access the vendor dashboard."
+            });
+        } catch (emailError) {
+            console.error("Error sending approval email:", emailError);
+            // Don't fail the approval if email fails
+        }
 
         return res.status(200).json({
             success: true,
@@ -223,11 +248,20 @@ export const approveVendor = async (req, res) => {
 export const rejectVendor = async (req, res) => {
     try {
         const { id } = req.params;
+        const { message } = req.body || {};
+        const adminId = req.userId;
 
         if (!id) {
             return res.status(400).json({
                 success: false,
                 message: "Vendor ID is required",
+            });
+        }
+
+        if (!message || message.trim() === "") {
+            return res.status(400).json({
+                success: false,
+                message: "Rejection message is required",
             });
         }
 
@@ -247,12 +281,30 @@ export const rejectVendor = async (req, res) => {
             });
         }
 
-        // Option 1: Just unverify them
+        // Update vendor status
         vendor.isAccountVerified = false;
         await vendor.save();
 
-        // Option 2: Delete the vendor (uncomment if you want to delete instead)
-        // await User.findByIdAndDelete(id);
+        // Update application status
+        const application = await VendorApplication.findOne({ userId: id });
+        if (application) {
+            application.status = "rejected";
+            application.rejectionMessage = message;
+            application.reviewedBy = adminId;
+            application.reviewedAt = new Date();
+            await application.save();
+        }
+
+        // Send rejection email
+        try {
+            await sendEmail(vendor.email, "vendor-rejected", {
+                vendorName: vendor.name,
+                message: message
+            });
+        } catch (emailError) {
+            console.error("Error sending rejection email:", emailError);
+            // Don't fail the rejection if email fails
+        }
 
         return res.status(200).json({
             success: true,
@@ -322,6 +374,71 @@ export const toggleVendorVerification = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to update vendor verification",
+        });
+    }
+};
+
+// Get all vendor applications
+export const getVendorApplications = async (req, res) => {
+    try {
+        const applications = await VendorApplication.find()
+            .populate("userId", "name email role contact address image")
+            .populate("reviewedBy", "name email")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            applications,
+        });
+    } catch (error) {
+        console.error("Get vendor applications error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch vendor applications",
+        });
+    }
+};
+
+// Get specific vendor application details
+export const getVendorApplicationDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor ID is required",
+            });
+        }
+
+        // Try to find by application ID first, then by userId
+        let application = await VendorApplication.findById(id)
+            .populate("userId", "name email role contact address image")
+            .populate("reviewedBy", "name email");
+
+        // If not found by ID, try finding by userId
+        if (!application) {
+            application = await VendorApplication.findOne({ userId: id })
+                .populate("userId", "name email role contact address image")
+                .populate("reviewedBy", "name email");
+        }
+
+        if (!application) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            application,
+        });
+    } catch (error) {
+        console.error("Get application details error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch application details",
         });
     }
 };

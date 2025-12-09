@@ -54,6 +54,41 @@ const userSchema = new mongoose.Schema({
         default: "",
         maxlength: [200, 'Address cannot exceed 200 characters']
     },
+    licenseNumber: {
+        type: String,
+        default: ""
+    },
+    licenseExpiry: {
+        type: Date
+    },
+    licenseImage: {
+        type: String,
+        default: ""
+    },
+    licenseStatus: {
+        type: String,
+        enum: ["none", "pending", "approved", "rejected"],
+        default: "none"
+    },
+    licenseReviewNote: {
+        type: String,
+        default: ""
+    },
+    licenseUploadedAt: {
+        type: Date
+    },
+    licenseReviewedAt: {
+        type: Date
+    },
+    licenseReviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    licenseVerificationToken: {
+        type: String,
+        default: ""
+    },
     image: {
         type: String,
         default: "https://res.cloudinary.com/dxigipf0k/image/upload/v1741190518/wy6ytirqcswljhf3c13v.png"

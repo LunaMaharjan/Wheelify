@@ -15,12 +15,11 @@ import {
 import { NavMain } from "@/components/nav-main";
 import {
     LayoutDashboard,
-    Users,
-    Store,
-    Settings,
+    Car,
+    Calendar,
+    DollarSign,
     LogOut,
     User,
-    ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -31,45 +30,40 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 
-const adminNavItems = [
+const vendorNavItems = [
     {
         title: "Dashboard",
-        url: "/admin",
+        url: "/vendor",
         icon: LayoutDashboard,
     },
     {
-        title: "Users",
-        url: "/admin/users",
-        icon: Users,
+        title: "Vehicles",
+        url: "/vendor/vehicles",
+        icon: Car,
     },
     {
-        title: "Vendors",
-        url: "/admin/vendors",
-        icon: Store,
+        title: "Rentals",
+        url: "/vendor/rentals",
+        icon: Calendar,
     },
     {
-        title: "Licenses",
-        url: "/admin/licenses",
-        icon: ShieldCheck,
-    },
-    {
-        title: "Settings",
-        url: "/admin/settings",
-        icon: Settings,
+        title: "Revenue",
+        url: "/vendor/revenue",
+        icon: DollarSign,
     },
 ];
 
-export default function AdminLayout({
+export default function VendorLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
-    const { requireAdmin, user, logout } = useAuthGuard();
+    const { requireVendor, user, logout } = useAuthGuard();
     const router = useRouter();
 
     useEffect(() => {
-        if (!requireAdmin("/login")) {
+        if (!requireVendor("/login")) {
             return;
         }
-    }, [requireAdmin]);
+    }, [requireVendor]);
 
     const handleLogout = async () => {
         await logout();
@@ -77,7 +71,7 @@ export default function AdminLayout({
     };
 
     const getUserInitials = (name?: string) => {
-        if (!name) return "A";
+        if (!name) return "V";
         return name
             .split(" ")
             .map((n) => n[0])
@@ -96,12 +90,12 @@ export default function AdminLayout({
                         </div>
                         <div className="flex flex-col">
                             <Link href="/" className="text-sm font-semibold">Wheelify</Link>
-                            <span className="text-xs text-muted-foreground">Admin Panel</span>
+                            <span className="text-xs text-muted-foreground">Vendor Dashboard</span>
                         </div>
                     </div>
                 </SidebarHeader>
                 <SidebarContent>
-                    <NavMain items={adminNavItems} />
+                    <NavMain items={vendorNavItems} />
                 </SidebarContent>
                 <SidebarFooter className="border-t border-sidebar-border p-4">
                     <div className="space-y-2">
@@ -114,7 +108,7 @@ export default function AdminLayout({
                             </Avatar>
                             <div className="flex flex-col flex-1 min-w-0">
                                 <span className="text-sm font-medium truncate">
-                                    {user?.name || "Admin"}
+                                    {user?.name || "Vendor"}
                                 </span>
                                 <span className="text-xs text-muted-foreground truncate">
                                     {user?.email}
@@ -128,7 +122,7 @@ export default function AdminLayout({
                                     asChild
                                     className="w-full justify-start"
                                 >
-                                    <Link href="/admin/profile">
+                                    <Link href="/profile">
                                         <User className="h-4 w-4" />
                                         <span>Profile</span>
                                     </Link>
@@ -152,7 +146,7 @@ export default function AdminLayout({
                     <SidebarTrigger className="-ml-1" />
                     <Separator orientation="vertical" className="mr-2 h-4" />
                     <div className="flex items-center gap-2">
-                        <h1 className="text-lg font-semibold">Admin Dashboard</h1>
+                        <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
                     </div>
                 </header>
                 <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 lg:p-8">
@@ -162,3 +156,4 @@ export default function AdminLayout({
         </SidebarProvider>
     );
 }
+

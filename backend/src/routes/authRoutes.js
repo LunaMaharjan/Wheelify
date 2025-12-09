@@ -8,6 +8,8 @@ import {
     getProfile,
 } from "../controllers/authController.js";
 import userAuth from "../middlewares/userAuth.js";
+import { upload } from "../utils/cloudinary.js";
+import { uploadLicense } from "../controllers/licenseController.js";
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ router.post("/logout", logout);
 
 // Profile
 router.get("/profile", userAuth, getProfile);
+router.post("/license/upload", userAuth, upload.single("licenseImage"), uploadLicense);
 
 export default router;
 

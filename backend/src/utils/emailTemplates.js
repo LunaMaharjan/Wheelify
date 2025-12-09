@@ -27,6 +27,53 @@ const emailTemplates = {
     </div>
   `,
 
+    // License upload notification
+    licenseUploaded: (userName, verificationLink, licenseImage) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1d4ed8;">License Uploaded</h2>
+      <p>Hi ${userName || "there"},</p>
+      <p>We received your license photo. Our admin team will review and approve it shortly.</p>
+      <div style="margin: 16px 0;">
+        <a href="${verificationLink}" style="display: inline-block; background: #1d4ed8; color: white; padding: 10px 16px; text-decoration: none; border-radius: 6px; font-weight: bold;">View your license submission</a>
+      </div>
+      ${licenseImage ? `<img src="${licenseImage}" alt="License" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;" />` : ""}
+      <p style="color: #64748b; font-size: 14px; margin-top: 16px;">If you didn't request this change, please contact support.</p>
+    </div>
+  `,
+
+    // License upload notification to admin
+    licenseUploadedAdmin: (userName, userEmail, reviewLink, licenseImage) => `
+    <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+      <h2 style="color: #1d4ed8;">New license submission</h2>
+      <p>${userName || "A user"} just uploaded a license photo.</p>
+      <p style="color: #475569;">User email: ${userEmail}</p>
+      <div style="margin: 16px 0;">
+        <a href="${reviewLink}" style="display: inline-block; background: #1d4ed8; color: white; padding: 10px 16px; text-decoration: none; border-radius: 6px; font-weight: bold;">Review in admin panel</a>
+      </div>
+      ${licenseImage ? `<img src="${licenseImage}" alt="License" style="max-width: 100%; border-radius: 8px; border: 1px solid #e5e7eb;" />` : ""}
+      <p style="color: #64748b; font-size: 13px; margin-top: 12px;">Approve or reject with a note. The user will be notified automatically.</p>
+    </div>
+  `,
+
+    licenseApprovedUser: (userName) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #16a34a;">License Approved</h2>
+      <p>Hi ${userName || "there"},</p>
+      <p>Your license has been reviewed and approved. You’re now verified to proceed.</p>
+      <p style="color: #64748b; font-size: 14px;">No further action is required.</p>
+    </div>
+  `,
+
+    licenseRejectedUser: (userName, reviewNote) => `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #dc2626;">License Rejected</h2>
+      <p>Hi ${userName || "there"},</p>
+      <p>Your license submission was reviewed and rejected.</p>
+      ${reviewNote ? `<div style="padding: 12px; border: 1px solid #fecdd3; background: #fff1f2; border-radius: 8px; color: #b91c1c; margin: 12px 0;">${reviewNote}</div>` : ""}
+      <p style="color: #64748b; font-size: 14px;">Please update your license photo and resubmit.</p>
+    </div>
+  `,
+
     // Ban notification
     banNotification: (userName, remarks, adminEmail) => `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -75,18 +122,35 @@ const emailTemplates = {
     <p>Your listing has been rejected.</p>
   </div>
   `,
-  vendorApproved: (vendorName) => `
+  vendorApproved: (vendorName, message) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-    <h2 style="color: #10b981;">Vendor Approved</h2>
+    <h2 style="color: #10b981;">Vendor Application Approved - Wheelify</h2>
     <p>Dear ${vendorName},</p>
-    <p>Your vendor application has been approved.</p>
+    <p>Congratulations! Your vendor application has been approved.</p>
+    <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <p style="margin: 0; font-weight: 600; color: #166534;">Approval Message:</p>
+      <p style="margin: 10px 0 0 0; color: #166534;">${message || "Your vendor application has been reviewed and approved. You can now access the vendor dashboard and start listing your vehicles."}</p>
+    </div>
+    <p>You can now log in to your account and access the vendor dashboard to manage your vehicles and rentals.</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/vendor" style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Access Vendor Dashboard</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">If you have any questions, please contact our support team.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
   </div>
   `,
-  vendorRejected: (vendorName) => `
+  vendorRejected: (vendorName, message) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-    <h2 style="color: #ef4444;">Vendor Rejected</h2>
+    <h2 style="color: #ef4444;">Vendor Application Rejected - Wheelify</h2>
     <p>Dear ${vendorName},</p>
-    <p>Your vendor application has been rejected.</p>
+    <p>We regret to inform you that your vendor application has been rejected.</p>
+    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+      <p style="margin: 0; font-weight: 600; color: #991b1b;">Rejection Reason:</p>
+      <p style="margin: 10px 0 0 0; color: #991b1b;">${message || "Your application did not meet our requirements."}</p>
+    </div>
+    <p>If you believe this was a mistake or would like to reapply with additional information, please contact our support team.</p>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">You can submit a new application after addressing the issues mentioned above.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
   </div>
   `
 };
@@ -101,6 +165,22 @@ const sendEmail = async (email, type, data) => {
         'password-reset-success': {
             subject: 'Password Changed Successfully',
             template: emailTemplates.passwordResetSuccess()
+        },
+        'license-uploaded': {
+            subject: 'License Submitted - Wheelify',
+            template: emailTemplates.licenseUploaded(data.userName, data.verificationLink, data.licenseImage)
+        },
+        'license-uploaded-admin': {
+            subject: 'New License Submission - Wheelify',
+            template: emailTemplates.licenseUploadedAdmin(data.userName, data.userEmail, data.reviewLink, data.licenseImage)
+        },
+        'license-approved-user': {
+            subject: 'Your License Was Approved - Wheelify',
+            template: emailTemplates.licenseApprovedUser(data.userName)
+        },
+        'license-rejected-user': {
+            subject: 'Your License Was Rejected - Wheelify',
+            template: emailTemplates.licenseRejectedUser(data.userName, data.reviewNote)
         },
 
         'account-banned': {
@@ -120,12 +200,12 @@ const sendEmail = async (email, type, data) => {
             template: emailTemplates.listingRejected(data.vendorName)
         },
         'vendor-approved': {
-            subject: 'Vendor Approved',
-            template: emailTemplates.vendorApproved(data.vendorName)
+            subject: 'Vendor Application Approved - Wheelify',
+            template: emailTemplates.vendorApproved(data.vendorName, data.message)
         },
         'vendor-rejected': {
-            subject: 'Vendor Rejected',
-            template: emailTemplates.vendorRejected(data.vendorName)
+            subject: 'Vendor Application Rejected - Wheelify',
+            template: emailTemplates.vendorRejected(data.vendorName, data.message)
         }
     };
 

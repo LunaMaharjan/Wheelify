@@ -21,10 +21,19 @@ export const storage = new CloudinaryStorage({
             transformation = [{ width: 500, height: 500, crop: 'limit' }];
         } else if (file.fieldname === 'fonepayQr') {
             transformation = [{ width: 300, height: 300, crop: 'limit' }];
+        } else if (file.fieldname === 'licenseImage') {
+            folder = 'license_documents';
+            transformation = [{ width: 1200, height: 800, crop: 'limit' }];
+        } else if (file.fieldname === 'citizenshipFront' || file.fieldname === 'citizenshipBack') {
+            folder = 'vendor_documents';
+            transformation = [{ width: 1200, height: 800, crop: 'limit' }];
+        } else if (file.fieldname === 'otherDocuments') {
+            folder = 'vendor_documents';
+            transformation = [{ width: 1200, height: 800, crop: 'limit' }];
         }
         return {
             folder,
-            allowed_formats: ['jpg', 'jpeg', 'png'],
+            allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
             transformation: transformation.length ? transformation : undefined,
             resource_type: 'image',
         };
@@ -32,11 +41,11 @@ export const storage = new CloudinaryStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only JPEG, PNG files are allowed.'), false);
+        cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
     }
 };
 

@@ -6,6 +6,10 @@ export const signup = async (data: {
     email: string;
     password: string;
     password_confirmation: string;
+    contact: string;
+    address: string;
+    licenseNumber?: string;
+    licenseExpiry?: string;
 }) => {
     const response = await axiosInstance.post("/register", data);
     return response.data;
@@ -43,6 +47,16 @@ export const getProfile = async () => {
     return response.data;
 };
 
+// License API
+export const uploadLicense = async (formData: FormData) => {
+    const response = await axiosInstance.post("/license/upload", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
 // Admin API - Dashboard Stats
 export const getDashboardStats = async () => {
     const response = await axiosInstance.get("/admin/stats");
@@ -73,13 +87,27 @@ export const getAllVendors = async () => {
     return response.data;
 };
 
-export const approveVendor = async (vendorId: string) => {
-    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/approve`);
+export const approveVendor = async (vendorId: string, message?: string) => {
+    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/approve`, {
+        message
+    });
     return response.data;
 };
 
-export const rejectVendor = async (vendorId: string) => {
-    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/reject`);
+export const rejectVendor = async (vendorId: string, message: string) => {
+    const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/reject`, {
+        message
+    });
+    return response.data;
+};
+
+export const getVendorApplications = async () => {
+    const response = await axiosInstance.get("/admin/vendors/applications");
+    return response.data;
+};
+
+export const getVendorApplicationDetails = async (applicationId: string) => {
+    const response = await axiosInstance.get(`/admin/vendors/applications/${applicationId}`);
     return response.data;
 };
 
@@ -87,6 +115,55 @@ export const toggleVendorVerification = async (vendorId: string, isAccountVerifi
     const response = await axiosInstance.patch(`/admin/vendors/${vendorId}/verification`, {
         isAccountVerified,
     });
+    return response.data;
+};
+
+// Admin API - Licenses
+export const getLicenseSubmissions = async () => {
+    const response = await axiosInstance.get("/admin/licenses");
+    return response.data;
+};
+
+export const reviewLicenseSubmission = async (
+    userId: string,
+    status: "approved" | "rejected",
+    reviewNote?: string
+) => {
+    const response = await axiosInstance.patch(`/admin/licenses/${userId}/review`, {
+        status,
+        reviewNote,
+    });
+    return response.data;
+};
+
+// Vendor API - Application
+export const submitVendorApplication = async (formData: FormData) => {
+    const response = await axiosInstance.post("/vendor/apply", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+export const getMyVendorApplication = async () => {
+    const response = await axiosInstance.get("/vendor/application");
+    return response.data;
+};
+
+// Vendor API - Dashboard
+export const getMyVehicles = async () => {
+    const response = await axiosInstance.get("/vendor/vehicles");
+    return response.data;
+};
+
+export const getMyRentals = async () => {
+    const response = await axiosInstance.get("/vendor/rentals");
+    return response.data;
+};
+
+export const getMyRevenue = async () => {
+    const response = await axiosInstance.get("/vendor/revenue");
     return response.data;
 };
 

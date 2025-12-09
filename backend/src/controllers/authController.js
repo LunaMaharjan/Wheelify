@@ -17,6 +17,11 @@ const sanitizeUser = (user) => ({
     image: user.image,
     contact: user.contact,
     address: user.address,
+    licenseNumber: user.licenseNumber,
+    licenseExpiry: user.licenseExpiry,
+    licenseImage: user.licenseImage,
+    licenseStatus: user.licenseStatus,
+    licenseReviewNote: user.licenseReviewNote,
     isAccountVerified: user.isAccountVerified,
 });
 
@@ -52,13 +57,13 @@ const createJwtToken = (userId, role) => {
 // Signup controller
 export const signup = async (req, res) => {
     try {
-        const { name, email, password, password_confirmation } = req.body;
+        const { name, email, password, password_confirmation, contact, address, licenseNumber, licenseExpiry } = req.body;
 
         // Validation
-        if (!name || !email || !password || !password_confirmation) {
+        if (!name || !email || !password || !password_confirmation || !contact || !address) {
             return res.status(400).json({
                 success: false,
-                message: "All fields are required"
+                message: "Name, email, password, contact, and address are required"
             });
         }
 
@@ -73,6 +78,22 @@ export const signup = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Password must be at least 8 characters long"
+            });
+        }
+
+        // Contact validation (basic 10 digit)
+        const contactRegex = /^[0-9]{10}$/;
+        if (!contactRegex.test(contact)) {
+            return res.status(400).json({
+                success: false,
+                message: "Contact must be a 10 digit number"
+            });
+        }
+
+        if (address.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Address is required"
             });
         }
 
@@ -98,6 +119,10 @@ export const signup = async (req, res) => {
             name: name.trim(),
             email: email.toLowerCase().trim(),
             password: hashedPassword,
+            contact: contact.trim(),
+            address: address.trim(),
+            licenseNumber: licenseNumber?.trim?.() || "",
+            licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : undefined,
             verificationToken,
             verificationTokenExpireAt,
             isAccountVerified: false

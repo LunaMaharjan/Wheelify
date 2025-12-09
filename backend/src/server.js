@@ -5,6 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import vendorRoutes from "./routes/vendorRoutes.js";
 
 env.config();
 
@@ -35,6 +36,7 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
 // Routes
 app.use("/api", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/vendor", vendorRoutes);
 
 app.get("/", (_, response) =>
   response.json({ info: "Express app" })

@@ -31,8 +31,19 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { getAllVendors, approveVendor, rejectVendor, toggleVendorVerification } from "@/lib/api";
+import { getAllVendors, approveVendor, rejectVendor, toggleVendorVerification, getVendorApplications, getVendorApplicationDetails } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Eye, FileText } from "lucide-react";
 
 interface Vendor {
     _id: string;
@@ -44,20 +55,56 @@ interface Vendor {
     address?: string;
     isAccountVerified: boolean;
     createdAt: string;
-    // Add vendor-specific fields here when backend is ready
     status?: "pending" | "approved" | "rejected";
+}
+
+interface VendorApplication {
+    _id: string;
+    userId: {
+        _id: string;
+        name: string;
+        email: string;
+    };
+    citizenshipFront: string;
+    citizenshipBack: string;
+    otherDocuments: string[];
+    status: string;
+    rejectionMessage?: string;
+    createdAt: string;
 }
 
 export default function VendorsManagementPage() {
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [filteredVendors, setFilteredVendors] = useState<Vendor[]>([]);
+    const [applications, setApplications] = useState<Record<string, VendorApplication>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
+    const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+    const [rejectionMessage, setRejectionMessage] = useState("");
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [isViewApplicationOpen, setIsViewApplicationOpen] = useState(false);
+    const [viewingApplication, setViewingApplication] = useState<VendorApplication | null>(null);
 
     useEffect(() => {
         fetchVendors();
+        fetchApplications();
     }, []);
+
+    const fetchApplications = async () => {
+        try {
+            const response = await getVendorApplications();
+            if (response?.success && response?.applications) {
+                const appsMap: Record<string, VendorApplication> = {};
+                response.applications.forEach((app: VendorApplication) => {
+                    appsMap[app.userId._id] = app;
+                });
+                setApplications(appsMap);
+            }
+        } catch (error) {
+            console.error("Failed to fetch applications:", error);
+        }
+    };
 
     useEffect(() => {
         let filtered = vendors;
@@ -109,6 +156,7 @@ export default function VendorsManagementPage() {
             await approveVendor(vendor._id);
             toast.success("Vendor approved successfully");
             fetchVendors();
+            fetchApplications();
         } catch (error: any) {
             toast.error("Failed to approve vendor", {
                 description: error.response?.data?.message || "An error occurred while approving the vendor",
@@ -116,14 +164,53 @@ export default function VendorsManagementPage() {
         }
     };
 
-    const handleRejectVendor = async (vendor: Vendor) => {
+    const handleRejectVendor = async () => {
+        if (!selectedVendor) return;
+        if (!rejectionMessage.trim()) {
+            toast.error("Please provide a rejection message");
+            return;
+        }
+
         try {
-            await rejectVendor(vendor._id);
+            await rejectVendor(selectedVendor._id, rejectionMessage);
             toast.success("Vendor rejected successfully");
+            setIsRejectDialogOpen(false);
+            setRejectionMessage("");
+            setSelectedVendor(null);
             fetchVendors();
+            fetchApplications();
         } catch (error: any) {
             toast.error("Failed to reject vendor", {
                 description: error.response?.data?.message || "An error occurred while rejecting the vendor",
+            });
+        }
+    };
+
+    const openRejectDialog = (vendor: Vendor) => {
+        setSelectedVendor(vendor);
+        setRejectionMessage("");
+        setIsRejectDialogOpen(true);
+    };
+
+    const handleViewApplication = async (vendor: Vendor) => {
+        try {
+            const application = applications[vendor._id];
+            if (application) {
+                setViewingApplication(application);
+                setIsViewApplicationOpen(true);
+            } else {
+                // Try to fetch application details
+                const response = await getVendorApplicationDetails(vendor._id);
+                if (response?.success && response?.application) {
+                    setViewingApplication(response.application);
+                    setIsViewApplicationOpen(true);
+                } else {
+                    toast.error("Application not found");
+                }
+            }
+        } catch (error: any) {
+            toast.error("Failed to load application", {
+                description: error.response?.data?.message || "An error occurred",
             });
         }
     };
@@ -259,49 +346,61 @@ export default function VendorsManagementPage() {
                                                     </TableCell>
                                                     <TableCell>{formatDate(vendor.createdAt)}</TableCell>
                                                     <TableCell className="text-right">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon">
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuSeparator />
-                                                                {!vendor.isAccountVerified && (
-                                                                    <>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => handleApproveVendor(vendor)}
-                                                                        >
-                                                                            <Check className="mr-2 h-4 w-4" />
-                                                                            Approve
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => handleRejectVendor(vendor)}
-                                                                        >
-                                                                            <X className="mr-2 h-4 w-4" />
-                                                                            Reject
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                    </>
-                                                                )}
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleToggleVerification(vendor)}
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            {applications[vendor._id] && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleViewApplication(vendor)}
                                                                 >
-                                                                    {vendor.isAccountVerified ? (
+                                                                    <Eye className="mr-2 h-4 w-4" />
+                                                                    View Application
+                                                                </Button>
+                                                            )}
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuSeparator />
+                                                                    {!vendor.isAccountVerified && (
                                                                         <>
-                                                                            <X className="mr-2 h-4 w-4" />
-                                                                            Unverify
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Check className="mr-2 h-4 w-4" />
-                                                                            Verify
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => handleApproveVendor(vendor)}
+                                                                            >
+                                                                                <Check className="mr-2 h-4 w-4" />
+                                                                                Approve
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => openRejectDialog(vendor)}
+                                                                            >
+                                                                                <X className="mr-2 h-4 w-4" />
+                                                                                Reject
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuSeparator />
                                                                         </>
                                                                     )}
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleToggleVerification(vendor)}
+                                                                    >
+                                                                        {vendor.isAccountVerified ? (
+                                                                            <>
+                                                                                <X className="mr-2 h-4 w-4" />
+                                                                                Unverify
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Check className="mr-2 h-4 w-4" />
+                                                                                Verify
+                                                                            </>
+                                                                        )}
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -313,6 +412,118 @@ export default function VendorsManagementPage() {
                     </Tabs>
                 </CardContent>
             </Card>
+
+            {/* Reject Vendor Dialog */}
+            <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Vendor Application</DialogTitle>
+                        <DialogDescription>
+                            Please provide a reason for rejecting this vendor application. This message will be sent to the vendor via email.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="rejectionMessage">
+                                Rejection Message <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                                id="rejectionMessage"
+                                placeholder="Enter the reason for rejection..."
+                                value={rejectionMessage}
+                                onChange={(e) => setRejectionMessage(e.target.value)}
+                                rows={4}
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsRejectDialogOpen(false);
+                                    setRejectionMessage("");
+                                    setSelectedVendor(null);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleRejectVendor}
+                                disabled={!rejectionMessage.trim()}
+                            >
+                                Reject Vendor
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* View Application Dialog */}
+            <Dialog open={isViewApplicationOpen} onOpenChange={setIsViewApplicationOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Vendor Application Details</DialogTitle>
+                        <DialogDescription>
+                            Review the vendor application documents
+                        </DialogDescription>
+                    </DialogHeader>
+                    {viewingApplication && (
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="font-semibold mb-2">Applicant Information</h3>
+                                <p><strong>Name:</strong> {viewingApplication.userId.name}</p>
+                                <p><strong>Email:</strong> {viewingApplication.userId.email}</p>
+                                <p><strong>Status:</strong> <span className="capitalize">{viewingApplication.status}</span></p>
+                                {viewingApplication.rejectionMessage && (
+                                    <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                                        <p className="text-sm"><strong>Rejection Reason:</strong> {viewingApplication.rejectionMessage}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <h3 className="font-semibold mb-2">Citizenship Front</h3>
+                                <img
+                                    src={viewingApplication.citizenshipFront}
+                                    alt="Citizenship Front"
+                                    className="w-full max-w-md border rounded-md"
+                                />
+                            </div>
+
+                            <div>
+                                <h3 className="font-semibold mb-2">Citizenship Back</h3>
+                                <img
+                                    src={viewingApplication.citizenshipBack}
+                                    alt="Citizenship Back"
+                                    className="w-full max-w-md border rounded-md"
+                                />
+                            </div>
+
+                            {viewingApplication.otherDocuments && viewingApplication.otherDocuments.length > 0 && (
+                                <div>
+                                    <h3 className="font-semibold mb-2">Other Documents</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {viewingApplication.otherDocuments.map((doc, index) => (
+                                            <div key={index} className="space-y-2">
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <FileText className="h-4 w-4" />
+                                                    <span>Document {index + 1}</span>
+                                                </div>
+                                                <img
+                                                    src={doc}
+                                                    alt={`Document ${index + 1}`}
+                                                    className="w-full border rounded-md"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -2,10 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Home, HomeIcon, LogOut, User } from 'lucide-react';
+import { ChevronDown, Home, HomeIcon, LogOut, User, Store } from 'lucide-react';
 import Image from "next/image";
 import { useAuthGuard } from "../hooks/use-auth-guard";
 import { Button } from "../components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import Logo from "@/assets/branding/logo.png";
 import { usePathname } from 'next/navigation'
 
@@ -19,7 +28,17 @@ const Navbar = () => {
         if (href === '/') return pathname === '/'
         return pathname.startsWith(href)
     }
-    const { isAuthenticated, user, logout, isLoading, isAdmin } = useAuthGuard();
+    const { isAuthenticated, user, logout, isLoading, isAdmin, isUser } = useAuthGuard();
+
+    const getUserInitials = (name?: string) => {
+        if (!name) return "U";
+        return name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+    };
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -72,35 +91,65 @@ const Navbar = () => {
                     <div className="hidden md:flex items-center space-x-4">
                         {!isLoading && (
                             <>
-                                {isAuthenticated ? (
-                                    <div className="flex items-center space-x-4">
-                                        <Link
-                                            href={isAdmin() ? "/admin" : "/profile"}
-                                            className="flex items-center space-x-2 text-sm font-medium hover:text-primary transition-colors"
-                                        >
-                                            <User className="h-4 w-4" />
-                                            <span>{user?.name}</span>
-                                        </Link>
-                                        <Button
-                                            onClick={handleLogout}
-                                            variant="destructive"
-                                            size="sm"
-                                            disabled={isLoggingOut}
-                                            className="flex items-center space-x-2"
-                                        >
-                                            {isLoggingOut ? (
-                                                <>
-                                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                                                    <span>Logging out...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <LogOut className="h-4 w-4" />
-                                                    <span>Logout</span>
-                                                </>
-                                            )}
+                                {isAuthenticated && isUser() && (
+                                    <Link href="/become-vendor">
+                                        <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                                            <Store className="h-4 w-4" />
+                                            <span>Become a Vendor</span>
                                         </Button>
-                                    </div>
+                                    </Link>
+                                )}
+                                {isAuthenticated ? (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-full">
+                                                <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                                                    <AvatarImage src={user?.image} alt={user?.name} />
+                                                    <AvatarFallback className="bg-primary text-primary-foreground">
+                                                        {getUserInitials(user?.name)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuLabel>
+                                                <div className="flex flex-col space-y-1">
+                                                    <p className="text-sm font-medium leading-none">{user?.name}</p>
+                                                    <p className="text-xs leading-none text-muted-foreground">
+                                                        {user?.email}
+                                                    </p>
+                                                </div>
+                                            </DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem asChild>
+                                                <Link
+                                                    href={isAdmin() ? "/admin/profile" : "/profile"}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <User className="mr-2 h-4 w-4" />
+                                                    <span>Profile</span>
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                onClick={handleLogout}
+                                                disabled={isLoggingOut}
+                                                className="cursor-pointer text-destructive focus:text-destructive"
+                                            >
+                                                {isLoggingOut ? (
+                                                    <>
+                                                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                        <span>Logging out...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <LogOut className="mr-2 h-4 w-4" />
+                                                        <span>Logout</span>
+                                                    </>
+                                                )}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 ) : (
                                     <>
                                         <Link href="/signup">
@@ -191,6 +240,16 @@ const Navbar = () => {
                                                     <User className="h-4 w-4" />
                                                     <span className="text-sm">Hi, {user?.name}</span>
                                                 </div>
+                                                {isUser() && (
+                                                    <Link
+                                                        href="/become-vendor"
+                                                        className="flex items-center gap-2 px-3 py-3 rounded-lg bg-primary text-white font-semibold justify-center hover:bg-primary/90 transition"
+                                                        onClick={() => setIsMobileMenuOpen(false)}
+                                                    >
+                                                        <Store className="h-4 w-4" />
+                                                        <span className="text-sm">Become a Vendor</span>
+                                                    </Link>
+                                                )}
                                                 <Link
                                                     href={isAdmin() ? "/admin" : "/profile"}
                                                     className="flex items-center gap-2 px-3 py-3 rounded-lg bg-gray-50 text-gray-800 font-medium hover:bg-gray-100 transition"

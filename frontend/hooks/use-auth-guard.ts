@@ -97,6 +97,29 @@ export function useAuthGuard() {
         return true;
     };
 
+    const requireVendor = (redirectTo: string = '/') => {
+        if (isLoading) {
+            return true;
+        }
+
+        if (!isAuthenticated) {
+            router.push(redirectTo);
+            return false;
+        }
+
+        if (user?.role !== 'vendor') {
+            router.push(redirectTo);
+            return false;
+        }
+
+        if (!user?.isAccountVerified) {
+            router.push(redirectTo);
+            return false;
+        }
+
+        return true;
+    };
+
     return {
         isAuthenticated,
         user,
@@ -106,6 +129,7 @@ export function useAuthGuard() {
         requireAuth,
         requireGuest,
         requireAdmin,
+        requireVendor,
         isAdmin,
         isAgent,
         isUser,
