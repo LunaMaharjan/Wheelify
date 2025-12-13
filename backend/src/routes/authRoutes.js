@@ -13,8 +13,8 @@ import { uploadLicense } from "../controllers/licenseController.js";
 
 const router = express.Router();
 
-// Signup route
-router.post("/register", signup);
+// Signup route (with optional file upload)
+router.post("/register", upload.single("licenseImage"), signup);
 
 // Verify email route
 router.get("/verify-email", verifyEmail);

@@ -10,9 +10,35 @@ export const signup = async (data: {
     address: string;
     licenseNumber?: string;
     licenseExpiry?: string;
+    licenseFile?: File;
 }) => {
-    const response = await axiosInstance.post("/register", data);
-    return response.data;
+    // If license file is present, send as FormData, otherwise send as JSON
+    if (data.licenseFile) {
+        const formData = new FormData();
+        formData.append("name", data.name);
+        formData.append("email", data.email);
+        formData.append("password", data.password);
+        formData.append("password_confirmation", data.password_confirmation);
+        formData.append("contact", data.contact);
+        formData.append("address", data.address);
+        if (data.licenseNumber) {
+            formData.append("licenseNumber", data.licenseNumber);
+        }
+        if (data.licenseExpiry) {
+            formData.append("licenseExpiry", data.licenseExpiry);
+        }
+        formData.append("licenseImage", data.licenseFile);
+        
+        const response = await axiosInstance.post("/register", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return response.data;
+    } else {
+        const response = await axiosInstance.post("/register", data);
+        return response.data;
+    }
 };
 
 // Verify email API

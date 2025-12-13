@@ -70,12 +70,10 @@ function SignupPage() {
                 address,
                 licenseNumber: licenseNumber || undefined,
                 licenseExpiry: licenseExpiry || undefined,
+                licenseFile: licenseFile || undefined,
             })
             toast.success("Account created successfully. Please check your email to verify your account.")
             setShowVerifyDialog(true)
-            if (licenseFile) {
-                toast.info("Upload your license photo after email verification from your profile.")
-            }
         } catch (err: any) {
             const msg = err?.response?.data?.message || err?.message || "Failed to register"
             toast.error(msg)
@@ -294,9 +292,6 @@ function SignupPage() {
                                                 {licenseFile && (
                                                     <p className="text-xs text-muted-foreground">Selected: {licenseFile.name}</p>
                                                 )}
-                                                <p className="text-xs text-muted-foreground">
-                                                    Photo upload will be available after you verify your email and log in.
-                                                </p>
                                             </div>
                                         </div>
                                     )}

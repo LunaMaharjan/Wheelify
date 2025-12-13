@@ -58,7 +58,7 @@ const createJwtToken = (userId, role) => {
 export const signup = async (req, res) => {
     try {
         const { name, email, password, password_confirmation, contact, address, licenseNumber, licenseExpiry } = req.body;
-
+        const licenseImagePath = req.file?.path; // Get uploaded file path from multer
         // Validation
         if (!name || !email || !password || !password_confirmation || !contact || !address) {
             return res.status(400).json({
@@ -114,8 +114,8 @@ export const signup = async (req, res) => {
         const verificationTokenExpireAt = new Date();
         verificationTokenExpireAt.setHours(verificationTokenExpireAt.getHours() + 24); // 24 hours expiry
 
-        // Create user
-        const user = await User.create({
+        // Prepare user data
+        const userData = {
             name: name.trim(),
             email: email.toLowerCase().trim(),
             password: hashedPassword,
@@ -126,7 +126,17 @@ export const signup = async (req, res) => {
             verificationToken,
             verificationTokenExpireAt,
             isAccountVerified: false
-        });
+        };
+
+        // If license image was uploaded, add it to user data
+        if (licenseImagePath) {
+            userData.licenseImage = licenseImagePath;
+            userData.licenseStatus = "pending";
+            userData.licenseUploadedAt = new Date();
+        }
+
+        // Create user
+        const user = await User.create(userData);
 
         // Generate verification link
         const verificationLink = `${getFrontendUrl()}/verify-email?token=${verificationToken}&email=${encodeURIComponent(user.email)}`;
@@ -145,6 +155,7 @@ export const signup = async (req, res) => {
         try {
             const admins = await User.find({ role: "admin" }).select("email");
             const viewUsersLink = `${getFrontendUrl()}/admin/users`;
+            const reviewLink = `${getFrontendUrl()}/admin/licenses`;
             
             // Send email to each admin
             const emailPromises = admins.map(admin => 
@@ -161,6 +172,29 @@ export const signup = async (req, res) => {
             );
             
             await Promise.allSettled(emailPromises);
+
+            // If license was uploaded, also notify admins about license upload
+            if (licenseImagePath) {
+                const getAdminNotificationEmail = () => {
+                    return process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.SMTP_MAIL;
+                };
+                
+                const adminEmail = getAdminNotificationEmail();
+                if (adminEmail) {
+                    try {
+                        await sendEmail(adminEmail, "license-uploaded-admin", {
+                            userName: user.name,
+                            userEmail: user.email,
+                            reviewLink,
+                            licenseImage: user.licenseImage,
+                        });
+                    } catch (emailError) {
+                        console.error("Error sending license upload admin email:", emailError);
+                    }
+                } else {
+                    console.warn("Admin notification email not configured; set ADMIN_EMAIL or ADMIN_NOTIFICATION_EMAIL.");
+                }
+            }
         } catch (emailError) {
             console.error("Error sending admin notification emails:", emailError);
             // Don't fail the signup if admin email fails, but log it
