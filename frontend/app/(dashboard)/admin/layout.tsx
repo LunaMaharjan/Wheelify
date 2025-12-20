@@ -21,6 +21,7 @@ import {
     LogOut,
     User,
     ShieldCheck,
+    Car,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -46,6 +47,11 @@ const adminNavItems = [
         title: "Vendors",
         url: "/admin/vendors",
         icon: Store,
+    },
+    {
+        title: "Vehicles",
+        url: "/admin/vehicles",
+        icon: Car,
     },
     {
         title: "Licenses",

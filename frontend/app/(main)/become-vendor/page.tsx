@@ -68,9 +68,10 @@ export default function BecomeVendorPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
-        if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-            toast.error("Invalid file type. Please upload images or PDF files.");
+        // Only allow images
+        if (!file.type.startsWith("image/")) {
+            toast.error("Invalid file type. Only image files (JPEG, PNG, JPG) are allowed.");
+            e.target.value = ''; // Clear the input
             return;
         }
 
@@ -222,7 +223,7 @@ export default function BecomeVendorPage() {
                                 <Input
                                     id="citizenshipFront"
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/jpeg,image/jpg,image/png"
                                     onChange={(e) => handleFileChange(e, "front")}
                                     required
                                     disabled={isSubmitting}
@@ -244,7 +245,7 @@ export default function BecomeVendorPage() {
                                 <Input
                                     id="citizenshipBack"
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/jpeg,image/jpg,image/png"
                                     onChange={(e) => handleFileChange(e, "back")}
                                     required
                                     disabled={isSubmitting}

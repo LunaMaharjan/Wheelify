@@ -15,6 +15,7 @@ import { signup } from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import Logo from "@/assets/branding/logo.png"
 
 function SignupPage() {
     const [showPassword, setShowPassword] = useState(false)
@@ -91,11 +92,11 @@ function SignupPage() {
             }}></div>
 
 <div className="relative z-10 flex gap-28 w-full  justify-center max-w-7xl mx-auto px-4">
-<div className="flex flex-col items-center  justify-start">
-                    <h1 className="text-5xl">LOGO</h1>   
+<Link href="/" className="flex flex-col items-center  justify-start">
+                    <Image src={Logo} alt="Wheelify Logo" height={120} width={120} priority className="h-48 -mb-10 w-auto" />   
 
-                    <h1>Welcome to Wheelify</h1>
-                </div>
+                    <h1>Wheelify</h1>
+                </Link>
                 <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/20 backdrop-blur-sm">
                     <div className="flex min-h-[600px]">
                         {/* Signup Form - Centered */}
@@ -286,8 +287,18 @@ function SignupPage() {
                                                 <Input
                                                     id="licenseFile"
                                                     type="file"
-                                                    accept="image/*,application/pdf"
-                                                    onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                                                    accept="image/jpeg,image/jpg,image/png"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            if (!file.type.startsWith('image/')) {
+                                                                toast.error("Only image files are allowed");
+                                                                e.target.value = '';
+                                                                return;
+                                                            }
+                                                        }
+                                                        setLicenseFile(file || null);
+                                                    }}
                                                 />
                                                 {licenseFile && (
                                                     <p className="text-xs text-muted-foreground">Selected: {licenseFile.name}</p>

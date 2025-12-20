@@ -3,6 +3,8 @@ import userAuth from "../middlewares/userAuth.js";
 import {
     submitApplication,
     getMyApplication,
+    uploadVehicle,
+    updateVehicle,
     getMyVehicles,
     getMyRentals,
     getMyRevenue
@@ -56,6 +58,84 @@ router.post("/apply",
 
 // Get current user's application
 router.get("/application", getMyApplication);
+
+// Upload vehicle (with file uploads)
+router.post("/vehicles",
+    upload.fields([
+        { name: 'bluebook', maxCount: 1 },
+        { name: 'vehicleImages', maxCount: 10 }
+    ]),
+    async (req, res, next) => {
+        try {
+            // Extract file URLs from Cloudinary
+            const files = req.files;
+            
+            const bluebook = files?.bluebook?.[0]?.path;
+            const vehicleImages = files?.vehicleImages?.map(file => file.path) || [];
+
+            if (!bluebook) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Bluebook document is required"
+                });
+            }
+
+            if (vehicleImages.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "At least one vehicle image is required"
+                });
+            }
+
+            // Add file URLs to request body
+            req.body.bluebook = bluebook;
+            req.body.vehicleImages = vehicleImages;
+
+            // Call the controller
+            next();
+        } catch (error) {
+            console.error("File upload error:", error);
+            return res.status(500).json({
+                success: false,
+                message: error.message || "Failed to upload files"
+            });
+        }
+    },
+    uploadVehicle
+);
+
+// Update vehicle (for rejected vehicles to resubmit)
+router.put("/vehicles/:vehicleId",
+    upload.fields([
+        { name: 'bluebook', maxCount: 1 },
+        { name: 'vehicleImages', maxCount: 10 }
+    ]),
+    async (req, res, next) => {
+        try {
+            // Extract file URLs from Cloudinary
+            const files = req.files;
+            
+            // Bluebook and images are optional for updates (only update if provided)
+            if (files?.bluebook?.[0]?.path) {
+                req.body.bluebook = files.bluebook[0].path;
+            }
+            
+            if (files?.vehicleImages && files.vehicleImages.length > 0) {
+                req.body.vehicleImages = files.vehicleImages.map(file => file.path);
+            }
+
+            // Call the controller
+            next();
+        } catch (error) {
+            console.error("File upload error:", error);
+            return res.status(500).json({
+                success: false,
+                message: error.message || "Failed to upload files"
+            });
+        }
+    },
+    updateVehicle
+);
 
 // Get vendor's vehicles
 router.get("/vehicles", getMyVehicles);

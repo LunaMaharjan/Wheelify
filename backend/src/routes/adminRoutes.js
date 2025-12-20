@@ -11,6 +11,9 @@ import {
     toggleVendorVerification,
     getVendorApplications,
     getVendorApplicationDetails,
+    getAllVehicles,
+    approveVehicle,
+    rejectVehicle,
 } from "../controllers/adminController.js";
 import { getLicenseSubmissions, reviewLicenseSubmission } from "../controllers/licenseController.js";
 
@@ -38,5 +41,10 @@ router.patch("/vendors/:id/verification", toggleVendorVerification);
 // License verification routes
 router.get("/licenses", getLicenseSubmissions);
 router.patch("/licenses/:id/review", reviewLicenseSubmission);
+
+// Vehicle management routes
+router.get("/vehicles", getAllVehicles);
+router.patch("/vehicles/:id/approve", approveVehicle);
+router.patch("/vehicles/:id/reject", rejectVehicle);
 
 export default router;

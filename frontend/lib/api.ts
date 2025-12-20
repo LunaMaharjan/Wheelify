@@ -193,3 +193,42 @@ export const getMyRevenue = async () => {
     return response.data;
 };
 
+// Vendor API - Vehicle Upload
+export const uploadVehicle = async (formData: FormData) => {
+    const response = await axiosInstance.post("/vendor/vehicles", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+// Vendor API - Update Vehicle (for rejected vehicles)
+export const updateVehicle = async (vehicleId: string, formData: FormData) => {
+    const response = await axiosInstance.put(`/vendor/vehicles/${vehicleId}`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+// Admin API - Vehicles
+export const getAllVehicles = async (approvalStatus?: string) => {
+    const params = approvalStatus ? { approvalStatus } : {};
+    const response = await axiosInstance.get("/admin/vehicles", { params });
+    return response.data;
+};
+
+export const approveVehicle = async (vehicleId: string) => {
+    const response = await axiosInstance.patch(`/admin/vehicles/${vehicleId}/approve`);
+    return response.data;
+};
+
+export const rejectVehicle = async (vehicleId: string, message: string) => {
+    const response = await axiosInstance.patch(`/admin/vehicles/${vehicleId}/reject`, {
+        message
+    });
+    return response.data;
+};
+

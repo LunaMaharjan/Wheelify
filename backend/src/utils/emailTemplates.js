@@ -190,6 +190,79 @@ const emailTemplates = {
     <p style="color: #64748b; font-size: 14px; margin-top: 20px;">The user will need to verify their email before they can log in.</p>
     <p style="color: #64748b; font-size: 14px;">This is an automated notification. Please do not reply directly to this email.</p>
   </div>
+  `,
+  vehicleUploadedAdmin: (vendorName, vendorEmail, vehicleName, vehicleType, vehicleCondition, reviewLink, vehicleImages) => `
+  <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+    <h2 style="color: #1d4ed8;">New Vehicle Uploaded - Wheelify</h2>
+    <p>Hello Admin,</p>
+    <p>A new vehicle has been uploaded and requires your review.</p>
+    <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1d4ed8;">
+      <p style="margin: 0 0 8px 0; font-weight: 600; color: #1e293b;">Vehicle Details:</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Name:</strong> ${vehicleName || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Type:</strong> ${vehicleType || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Condition:</strong> ${vehicleCondition || "N/A"}</p>
+      <p style="margin: 8px 0 4px 0; font-weight: 600; color: #1e293b;">Vendor Details:</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Name:</strong> ${vendorName || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Email:</strong> ${vendorEmail || "N/A"}</p>
+      <p style="margin: 4px 0; color: #475569;"><strong>Uploaded:</strong> ${new Date().toLocaleString()}</p>
+    </div>
+    ${vehicleImages && vehicleImages.length > 0 ? `
+    <div style="margin: 20px 0;">
+      <p style="font-weight: 600; margin-bottom: 8px;">Vehicle Images:</p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        ${vehicleImages.slice(0, 3).map(img => `
+          <img src="${img}" alt="Vehicle" style="max-width: 150px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;" />
+        `).join('')}
+      </div>
+      ${vehicleImages.length > 3 ? `<p style="color: #64748b; font-size: 12px; margin-top: 8px;">+ ${vehicleImages.length - 3} more image(s)</p>` : ''}
+    </div>
+    ` : ''}
+    <div style="margin: 20px 0;">
+      <a href="${reviewLink}" style="display: inline-block; background: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Review Vehicle</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">Please review the vehicle and approve or reject it with appropriate feedback.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated notification. Please do not reply directly to this email.</p>
+  </div>
+  `,
+  vehicleApprovedVendor: (vendorName, vehicleName, vehicleType) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #10b981;">Your Vehicle Has Been Approved - Wheelify</h2>
+    <p>Dear ${vendorName},</p>
+    <p>Congratulations! Your vehicle has been reviewed and approved.</p>
+    <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <p style="margin: 0; font-weight: 600; color: #166534;">Vehicle Details:</p>
+      <p style="margin: 10px 0 0 0; color: #166534;"><strong>Name:</strong> ${vehicleName || "N/A"}</p>
+      <p style="margin: 4px 0 0 0; color: #166534;"><strong>Type:</strong> ${vehicleType || "N/A"}</p>
+    </div>
+    <p>Your vehicle is now live and available for rental. Customers can now view and book your vehicle.</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/vendor/vehicles" style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Your Vehicles</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">If you have any questions, please contact our support team.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
+  </div>
+  `,
+  vehicleRejectedVendor: (vendorName, vehicleName, vehicleType, rejectionMessage) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #ef4444;">Your Vehicle Upload Was Rejected - Wheelify</h2>
+    <p>Dear ${vendorName},</p>
+    <p>We regret to inform you that your vehicle upload has been rejected.</p>
+    <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1d4ed8;">
+      <p style="margin: 0; font-weight: 600; color: #1e293b;">Vehicle Details:</p>
+      <p style="margin: 10px 0 0 0; color: #475569;"><strong>Name:</strong> ${vehicleName || "N/A"}</p>
+      <p style="margin: 4px 0 0 0; color: #475569;"><strong>Type:</strong> ${vehicleType || "N/A"}</p>
+    </div>
+    <div style="background: #fef2f2; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+      <p style="margin: 0; font-weight: 600; color: #991b1b;">Rejection Reason:</p>
+      <p style="margin: 10px 0 0 0; color: #991b1b;">${rejectionMessage || "Your vehicle upload did not meet our requirements."}</p>
+    </div>
+    <p>Please review the rejection reason above and address the issues before resubmitting your vehicle.</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/vendor/vehicles" style="display: inline-block; background: #1d4ed8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Your Vehicles</a>
+    </div>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">If you believe this was a mistake or need clarification, please contact our support team.</p>
+    <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
+  </div>
   `
 };
 
@@ -252,6 +325,18 @@ const sendEmail = async (email, type, data) => {
         'new-user-signup-admin': {
             subject: 'New User Signup - Wheelify',
             template: emailTemplates.newUserSignupAdmin(data.userName, data.userEmail, data.userContact, data.userAddress, data.viewUsersLink)
+        },
+        'vehicle-uploaded-admin': {
+            subject: 'New Vehicle Uploaded - Wheelify',
+            template: emailTemplates.vehicleUploadedAdmin(data.vendorName, data.vendorEmail, data.vehicleName, data.vehicleType, data.vehicleCondition, data.reviewLink, data.vehicleImages)
+        },
+        'vehicle-approved-vendor': {
+            subject: 'Your Vehicle Has Been Approved - Wheelify',
+            template: emailTemplates.vehicleApprovedVendor(data.vendorName, data.vehicleName, data.vehicleType)
+        },
+        'vehicle-rejected-vendor': {
+            subject: 'Your Vehicle Upload Was Rejected - Wheelify',
+            template: emailTemplates.vehicleRejectedVendor(data.vendorName, data.vehicleName, data.vehicleType, data.rejectionMessage)
         }
     };
 

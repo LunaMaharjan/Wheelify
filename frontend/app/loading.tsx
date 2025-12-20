@@ -9,7 +9,7 @@ export default function Loading() {
                     src={Logo}
                     alt="Site logo"
                     priority
-                    className="h-28 w-auto opacity-90 animate-pulse"
+                    className="h-48 w-auto opacity-90 animate-pulse"
 
                 />
             </div>

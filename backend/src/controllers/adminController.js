@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import VendorApplication from "../models/vendorApplication.model.js";
+import Vehicle from "../models/vehicle.model.js";
 import sendEmail from "../utils/emailTemplates.js";
 
 // Get dashboard statistics
@@ -439,6 +440,178 @@ export const getVendorApplicationDetails = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to fetch application details",
+        });
+    }
+};
+
+// Get all vehicles
+export const getAllVehicles = async (req, res) => {
+    try {
+        const { approvalStatus } = req.query;
+        
+        let query = {};
+        if (approvalStatus) {
+            query.approvalStatus = approvalStatus;
+        }
+
+        const vehicles = await Vehicle.find(query)
+            .populate("vendorId", "name email role contact address")
+            .populate("reviewedBy", "name email")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            vehicles,
+            count: vehicles.length
+        });
+    } catch (error) {
+        console.error("Get all vehicles error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch vehicles",
+        });
+    }
+};
+
+// Approve a vehicle
+export const approveVehicle = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adminId = req.userId;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vehicle ID is required",
+            });
+        }
+
+        const vehicle = await Vehicle.findById(id).populate("vendorId", "name email");
+
+        if (!vehicle) {
+            return res.status(404).json({
+                success: false,
+                message: "Vehicle not found",
+            });
+        }
+
+        if (vehicle.approvalStatus !== "pending") {
+            return res.status(400).json({
+                success: false,
+                message: `Vehicle is already ${vehicle.approvalStatus}`,
+            });
+        }
+
+        // Update vehicle status
+        vehicle.approvalStatus = "approved";
+        vehicle.status = "available"; // Make it available for rental
+        vehicle.reviewedBy = adminId;
+        vehicle.reviewedAt = new Date();
+        await vehicle.save();
+
+        // Send approval email to vendor
+        if (vehicle.vendorId && vehicle.vendorId.email) {
+            try {
+                await sendEmail(vehicle.vendorId.email, "vehicle-approved-vendor", {
+                    vendorName: vehicle.vendorId.name,
+                    vehicleName: vehicle.name,
+                    vehicleType: vehicle.type
+                });
+            } catch (emailError) {
+                console.error("Error sending approval email:", emailError);
+                // Don't fail the approval if email fails
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Vehicle approved successfully",
+            vehicle: {
+                id: vehicle._id,
+                name: vehicle.name,
+                type: vehicle.type,
+                approvalStatus: vehicle.approvalStatus,
+                status: vehicle.status
+            },
+        });
+    } catch (error) {
+        console.error("Approve vehicle error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to approve vehicle",
+        });
+    }
+};
+
+// Reject a vehicle
+export const rejectVehicle = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { message } = req.body || {};
+        const adminId = req.userId;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Vehicle ID is required",
+            });
+        }
+
+        if (!message || message.trim() === "") {
+            return res.status(400).json({
+                success: false,
+                message: "Rejection message is required",
+            });
+        }
+
+        const vehicle = await Vehicle.findById(id).populate("vendorId", "name email");
+
+        if (!vehicle) {
+            return res.status(404).json({
+                success: false,
+                message: "Vehicle not found",
+            });
+        }
+
+        if (vehicle.approvalStatus !== "pending") {
+            return res.status(400).json({
+                success: false,
+                message: `Vehicle is already ${vehicle.approvalStatus}`,
+            });
+        }
+
+        // Update vehicle status
+        vehicle.approvalStatus = "rejected";
+        vehicle.status = "inactive"; // Set to inactive so it cannot be rented
+        vehicle.rejectionMessage = message.trim();
+        vehicle.reviewedBy = adminId;
+        vehicle.reviewedAt = new Date();
+        await vehicle.save();
+
+        // Send rejection email to vendor
+        if (vehicle.vendorId && vehicle.vendorId.email) {
+            try {
+                await sendEmail(vehicle.vendorId.email, "vehicle-rejected-vendor", {
+                    vendorName: vehicle.vendorId.name,
+                    vehicleName: vehicle.name,
+                    vehicleType: vehicle.type,
+                    rejectionMessage: message.trim()
+                });
+            } catch (emailError) {
+                console.error("Error sending rejection email:", emailError);
+                // Don't fail the rejection if email fails
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Vehicle rejected successfully",
+        });
+    } catch (error) {
+        console.error("Reject vehicle error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to reject vehicle",
         });
     }
 };

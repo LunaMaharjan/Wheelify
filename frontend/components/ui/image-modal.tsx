@@ -33,19 +33,31 @@ export function ImageModal({ isOpen, imageSrc, onClose, alt = "Full size image" 
         }
     }, [isOpen])
 
+    const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3))
+    const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5))
+
     // Keyboard controls
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose()
-            if (e.key === "+" || e.key === "=") handleZoomIn()
-            if (e.key === "-") handleZoomOut()
+            if (e.key === "Escape") {
+                e.preventDefault()
+                e.stopPropagation()
+                onClose()
+            }
+            if (e.key === "+" || e.key === "=") {
+                e.preventDefault()
+                handleZoomIn()
+            }
+            if (e.key === "-") {
+                e.preventDefault()
+                handleZoomOut()
+            }
         }
-        if (isOpen) window.addEventListener("keydown", handleKeyDown)
-        return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [isOpen, zoom])
-
-    const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3))
-    const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5))
+        if (isOpen) {
+            window.addEventListener("keydown", handleKeyDown, true)
+        }
+        return () => window.removeEventListener("keydown", handleKeyDown, true)
+    }, [isOpen, onClose])
     useEffect(() => { if (zoom === 1) setOffset({ x: 0, y: 0 }) }, [zoom])
 
     // Drag logic
@@ -72,7 +84,7 @@ export function ImageModal({ isOpen, imageSrc, onClose, alt = "Full size image" 
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${
+            className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-opacity duration-300 ${
                 isAnimating ? "opacity-100" : "opacity-0"
             }`}
             onClick={onClose}
@@ -88,33 +100,45 @@ export function ImageModal({ isOpen, imageSrc, onClose, alt = "Full size image" 
                 <div className="absolute inset-0 bg-neutral-950/95 backdrop-blur-md rounded-2xl" />
 
                 {/* Controls */}
-                <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+                <div 
+                    className="absolute top-4 left-4 right-4 flex items-center justify-between z-20"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={handleZoomOut}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleZoomOut()
+                            }}
                             disabled={zoom <= 0.5}
-                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition disabled:opacity-40"
+                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition disabled:opacity-40 pointer-events-auto"
                             aria-label="Zoom out"
                         >
                             <ZoomOut className="h-5 w-5" />
                         </button>
 
-                        <span className="px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium border border-white/10 backdrop-blur-md">
+                        <span className="px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium border border-white/10 backdrop-blur-md pointer-events-none">
                             {Math.round(zoom * 100)}%
                         </span>
 
                         <button
-                            onClick={handleZoomIn}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleZoomIn()
+                            }}
                             disabled={zoom >= 3}
-                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition disabled:opacity-40"
+                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition disabled:opacity-40 pointer-events-auto"
                             aria-label="Zoom in"
                         >
                             <ZoomIn className="h-5 w-5" />
                         </button>
 
                         <button
-                            onClick={() => setZoom(1)}
-                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setZoom(1)
+                            }}
+                            className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 hover:scale-110 transition pointer-events-auto"
                             aria-label="Reset zoom"
                         >
                             <Maximize2 className="h-5 w-5" />
@@ -122,8 +146,11 @@ export function ImageModal({ isOpen, imageSrc, onClose, alt = "Full size image" 
                     </div>
 
                     <button
-                        onClick={onClose}
-                        className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-red-500/80 hover:scale-110 transition"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onClose()
+                        }}
+                        className="p-2.5 rounded-full bg-white/10 text-white border border-white/10 hover:bg-red-500/80 hover:scale-110 transition pointer-events-auto"
                         aria-label="Close image modal"
                     >
                         <X className="h-5 w-5" />

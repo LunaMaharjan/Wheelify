@@ -8,7 +8,7 @@ const getFrontendUrl = () => {
 };
 
 const getAdminNotificationEmail = () => {
-    return process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.SMTP_MAIL;
+    return  process.env.SMTP_MAIL;
 };
 
 export const uploadLicense = async (req, res) => {

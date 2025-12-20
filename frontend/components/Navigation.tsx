@@ -58,7 +58,7 @@ const Navbar = () => {
                     {/* Logo */}
                     <div className="flex items-center">
                         <Link href="/" className="flex items-center space-x-2">
-                            <Image src={Logo} alt="Wheelify Logo" width={120} height={40} priority className="h-8 w-auto" />
+                            <Image src={Logo} alt="Wheelify Logo" height={120} width={120} priority className="h-20 w-auto" />
                             <span className="text-2xl font-bold">Wheelify</span>
                         </Link>
                     </div>

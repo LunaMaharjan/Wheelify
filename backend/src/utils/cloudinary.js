@@ -30,10 +30,17 @@ export const storage = new CloudinaryStorage({
         } else if (file.fieldname === 'otherDocuments') {
             folder = 'vendor_documents';
             transformation = [{ width: 1200, height: 800, crop: 'limit' }];
+        } else if (file.fieldname === 'bluebook') {
+            folder = 'vehicle_documents';
+            transformation = [{ width: 1200, height: 800, crop: 'limit' }];
+        } else if (file.fieldname === 'vehicleImages') {
+            folder = 'vehicle_images';
+            transformation = [{ width: 800, height: 600, crop: 'limit' }];
         }
+        // All file uploads only accept images, no PDFs
         return {
             folder,
-            allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+            allowed_formats: ['jpg', 'jpeg', 'png'],
             transformation: transformation.length ? transformation : undefined,
             resource_type: 'image',
         };
@@ -41,11 +48,12 @@ export const storage = new CloudinaryStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-    if (allowedTypes.includes(file.mimetype)) {
+    // All file uploads only accept images
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (allowedImageTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
+        cb(new Error('Invalid file type. Only image files (JPEG, PNG, JPG) are allowed.'), false);
     }
 };
 

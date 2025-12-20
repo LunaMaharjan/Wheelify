@@ -162,8 +162,10 @@ export default function ProfilePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-            toast.error("Invalid file type. Upload an image or PDF.");
+        // Only allow images
+        if (!file.type.startsWith("image/")) {
+            toast.error("Invalid file type. Only image files (JPEG, PNG, JPG) are allowed.");
+            e.target.value = ''; // Clear the input
             return;
         }
 
@@ -442,12 +444,12 @@ export default function ProfilePage() {
                                             </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor="licenseFile">
-                                                    License Photo (image or PDF) <span className="text-red-500">*</span>
+                                                    License Photo (image only) <span className="text-red-500">*</span>
                                                 </Label>
                                                 <Input
                                                     id="licenseFile"
                                                     type="file"
-                                                    accept="image/*,application/pdf"
+                                                    accept="image/jpeg,image/jpg,image/png"
                                                     onChange={handleLicenseFileChange}
                                                     required
                                                 />

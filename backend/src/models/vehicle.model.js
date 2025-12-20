@@ -42,6 +42,33 @@ const vehicleSchema = new mongoose.Schema({
         type: Map,
         of: String,
         default: {}
+    },
+    bluebook: {
+        type: String,
+        default: ""
+    },
+    condition: {
+        type: String,
+        enum: ["excellent", "good", "fair", "poor"],
+        default: "good"
+    },
+    approvalStatus: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending"
+    },
+    rejectionMessage: {
+        type: String,
+        default: ""
+    },
+    reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    reviewedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true,
