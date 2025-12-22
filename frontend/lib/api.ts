@@ -232,3 +232,29 @@ export const rejectVehicle = async (vehicleId: string, message: string) => {
     return response.data;
 };
 
+// Public Search API - Vehicles
+export interface SearchVehiclesParams {
+    query?: string;
+    type?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    location?: string;
+    condition?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+}
+
+export const searchVehicles = async (params: SearchVehiclesParams = {}) => {
+    const response = await axiosInstance.get("/vehicles/search", { params });
+    return response.data;
+};
+
+// Get single vehicle by ID (public)
+export const getVehicleById = async (vehicleId: string) => {
+    const response = await axiosInstance.get(`/vehicles/${vehicleId}`);
+    return response.data;
+};
+

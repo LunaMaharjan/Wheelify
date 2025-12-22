@@ -10,6 +10,7 @@ import {
 import userAuth from "../middlewares/userAuth.js";
 import { upload } from "../utils/cloudinary.js";
 import { uploadLicense } from "../controllers/licenseController.js";
+import { searchVehicles, getVehicleById } from "../controllers/searchController.js";
 
 const router = express.Router();
 
@@ -29,6 +30,10 @@ router.post("/logout", logout);
 // Profile
 router.get("/profile", userAuth, getProfile);
 router.post("/license/upload", userAuth, upload.single("licenseImage"), uploadLicense);
+
+// Public search (no auth required)
+router.get("/vehicles/search", searchVehicles);
+router.get("/vehicles/:id", getVehicleById);
 
 export default router;
 
