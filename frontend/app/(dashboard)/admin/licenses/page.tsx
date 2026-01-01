@@ -51,7 +51,7 @@ export default function LicenseReviewPage() {
     const [rejectNote, setRejectNote] = useState("");
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [viewing, setViewing] = useState<LicenseSubmission | null>(null);
-
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     useEffect(() => {
         fetchSubmissions();
     }, []);
@@ -74,6 +74,7 @@ export default function LicenseReviewPage() {
     };
 
     const handleApprove = async (id: string) => {
+        setActionLoading("approve-" + id);
         try {
             await reviewLicenseSubmission(id, "approved");
             toast.success("License approved");
@@ -82,10 +83,13 @@ export default function LicenseReviewPage() {
             toast.error("Failed to approve license", {
                 description: error.response?.data?.message,
             });
+        }finally{
+            setActionLoading(null);
         }
     };
 
     const handleReject = async () => {
+        setActionLoading("reject");
         if (!rejectingId) return;
         try {
             await reviewLicenseSubmission(rejectingId, "rejected", rejectNote);
@@ -93,10 +97,14 @@ export default function LicenseReviewPage() {
             setRejectingId(null);
             setRejectNote("");
             fetchSubmissions();
+
         } catch (error: any) {
             toast.error("Failed to reject license", {
                 description: error.response?.data?.message,
             });
+        } finally {
+            setActionLoading(null);
+
         }
     };
 
@@ -175,17 +183,20 @@ export default function LicenseReviewPage() {
                                                     </Button>
                                                     <Button
                                                         size="sm"
-                                                        disabled={submission.licenseStatus === "approved"}
+                                                        disabled={submission.licenseStatus === "approved" || submission.licenseStatus === "rejected" || actionLoading === "approve-" + submission._id}
                                                         onClick={() => handleApprove(submission._id)}
                                                     >
                                                         <ShieldCheck className="h-4 w-4 mr-2" />
+                                                        {actionLoading === "approve-" + submission._id && (
+                                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                        )}
                                                         Approve
                                                     </Button>
                                                     <Button
                                                         variant="destructive"
                                                         size="sm"
                                                         onClick={() => setRejectingId(submission._id)}
-                                                        disabled={submission.licenseStatus === "rejected"}
+                                                        disabled={submission.licenseStatus === "approved" || submission.licenseStatus === "rejected"}
                                                     >
                                                         <X className="h-4 w-4 mr-2" />
                                                         Reject
@@ -208,7 +219,7 @@ export default function LicenseReviewPage() {
                     </DialogHeader>
                     <div className="space-y-3">
                         <div className="space-y-2">
-                            <Label htmlFor="rejectNote">Reason (optional)</Label>
+                            <Label htmlFor="rejectNote">Reason</Label>
                             <Input
                                 id="rejectNote"
                                 value={rejectNote}
@@ -220,7 +231,10 @@ export default function LicenseReviewPage() {
                             <Button variant="outline" onClick={() => setRejectingId(null)}>
                                 Cancel
                             </Button>
-                            <Button variant="destructive" onClick={handleReject}>
+                            <Button variant="destructive" onClick={handleReject} disabled={actionLoading === "reject"}>
+                                {actionLoading === "reject" && (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
+                                )}
                                 Reject
                             </Button>
                         </div>
