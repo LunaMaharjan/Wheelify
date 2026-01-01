@@ -258,3 +258,69 @@ export const getVehicleById = async (vehicleId: string) => {
     return response.data;
 };
 
+// Booking API
+export interface CheckAvailabilityParams {
+    vehicleId: string;
+    startDate: string;
+    endDate: string;
+}
+
+export interface BookingData {
+    vehicleId: string;
+    startDate: string;
+    endDate: string;
+    isPaymentDeferred?: boolean;
+}
+
+export interface PaymentInitiationData {
+    bookingData: {
+        vehicleId: string;
+        startDate: string;
+        endDate: string;
+        totalDays: number;
+        pricePerDay: number;
+        totalAmount: number;
+    };
+}
+
+export const checkAvailability = async (params: CheckAvailabilityParams) => {
+    const response = await axiosInstance.get("/bookings/check-availability", { params });
+    return response.data;
+};
+
+export const createBooking = async (data: BookingData) => {
+    const response = await axiosInstance.post("/bookings/create", data);
+    return response.data;
+};
+
+export const getUserBookings = async () => {
+    const response = await axiosInstance.get("/bookings/my-bookings");
+    return response.data;
+};
+
+export const getBookingById = async (bookingId: string) => {
+    const response = await axiosInstance.get(`/bookings/${bookingId}`);
+    return response.data;
+};
+
+export const cancelBooking = async (bookingId: string) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/cancel`);
+    return response.data;
+};
+
+// Payment API - eSewa
+export const initiateEsewaPayment = async (data: PaymentInitiationData) => {
+    const response = await axiosInstance.post("/payments/esewa/initiate", data);
+    return response.data;
+};
+
+export const verifyEsewaPayment = async (data: { transactionUuid: string }) => {
+    const response = await axiosInstance.post("/payments/esewa/verify", data);
+    return response.data;
+};
+
+export const checkEsewaPaymentStatus = async (data: { transactionUuid: string }) => {
+    const response = await axiosInstance.post("/payments/esewa/status", data);
+    return response.data;
+};
+

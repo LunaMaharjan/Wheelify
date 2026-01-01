@@ -39,10 +39,6 @@ const rentalSchema = new mongoose.Schema({
         enum: ["pending", "paid", "refunded"],
         default: "pending"
     },
-    notes: {
-        type: String,
-        default: ""
-    }
 }, {
     timestamps: true,
     toJSON: {

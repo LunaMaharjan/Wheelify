@@ -38,6 +38,10 @@ const vehicleSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    pickupLocation: {
+        address: { type: String, default: "" },
+        city: { type: String, default: "" }
+    },
     specifications: {
         type: Map,
         of: String,

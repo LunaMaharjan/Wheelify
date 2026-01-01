@@ -76,7 +76,8 @@ export default function Home() {
         <h2 className="text-3xl font-bold text-center mb-12">Rent by vehicle type</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {vehicleTypes.map((vehicle) => (
-            <Card key={vehicle.id} className="overflow-hidden pt-0 hover:shadow-lg transition-shadow cursor-pointer">
+            <Link href={`/rent?type=${vehicle.query}`} key={vehicle.id} passHref>
+            <Card key={vehicle.id} className="overflow-hidden hover:shadow-lg pt-0 hover:border-primary transition-shadow cursor-pointer">
               <div className="relative h-64 w-full">
                 <Image
                   src={vehicle.image}
@@ -92,7 +93,9 @@ export default function Home() {
                 )}
               </CardHeader>
             </Card>
+            </Link>
           ))}
+          
         </div>
       </section>
 

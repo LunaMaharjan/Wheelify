@@ -3,6 +3,7 @@ export interface VehicleType {
   name: string;
   image: string;
   description?: string;
+  query: string;
 }
 
 export interface PopularVehicle {
@@ -33,18 +34,21 @@ export const vehicleTypes: VehicleType[] = [
   {
     id: "1",
     name: "Cars",
+    query: "car",
     image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=600&fit=crop",
     description: "Explore our wide range of cars"
   },
   {
     id: "2",
     name: "Bikes",
+    query: "bike",
     image: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&h=600&fit=crop",
     description: "Rent a bike for your adventure"
   },
   {
     id: "3",
     name: "Scooters",
+    query: "scooter",
     image: "https://images.unsplash.com/photo-1554223789-df81106a45ed?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     description: "Zip through the city with ease"
   }

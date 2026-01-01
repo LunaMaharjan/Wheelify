@@ -263,6 +263,106 @@ const emailTemplates = {
     <p style="color: #64748b; font-size: 14px; margin-top: 20px;">If you believe this was a mistake or need clarification, please contact our support team.</p>
     <p style="color: #64748b; font-size: 14px;">This is an automated message. Please do not reply directly to this email.</p>
   </div>
+  `,
+
+    bookingConfirmationUser: (userName, vehicleName, startDate, endDate, totalAmount, totalDays, pickupLocation, bookingId, vendorContact) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <h1 style="color: #10b981; margin: 0;">🎉 Booking Confirmed!</h1>
+    </div>
+    <p>Dear <strong>${userName}</strong>,</p>
+    <p>Great news! Your vehicle rental booking has been confirmed and payment has been successfully processed.</p>
+    
+    <div style="background-color: #f0fdf4; padding: 20px; border-radius: 6px; border-left: 4px solid #10b981; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #047857;">Booking Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Booking ID:</strong></td>
+          <td style="padding: 8px 0;">${bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Vehicle:</strong></td>
+          <td style="padding: 8px 0;">${vehicleName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Rental Period:</strong></td>
+          <td style="padding: 8px 0;">${startDate} to ${endDate}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Total Days:</strong></td>
+          <td style="padding: 8px 0;">${totalDays} day(s)</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Total Amount Paid:</strong></td>
+          <td style="padding: 8px 0; font-weight: bold; color: #10b981;">NPR ${totalAmount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Pickup Location:</strong></td>
+          <td style="padding: 8px 0;">${pickupLocation}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Vendor Contact:</strong></td>
+          <td style="padding: 8px 0;">${vendorContact}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>You can view your booking details in your dashboard. If you need to make any changes or have questions, please contact our support team.</p>
+    <p>Thank you for choosing AURA! We hope you have a great rental experience.</p>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">This is an automated message. Please do not reply directly to this email.</p>
+  </div>
+  `,
+
+  bookingConfirmationVendor: (vendorName, vehicleName, userName, userContact, startDate, endDate, totalAmount, totalDays, pickupLocation, bookingId) => `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <h1 style="color: #3b82f6; margin: 0;">📦 New Booking Received!</h1>
+    </div>
+    <p>Dear <strong>${vendorName}</strong>,</p>
+    <p>You have received a new confirmed booking for your vehicle. Payment has been successfully processed.</p>
+    
+    <div style="background-color: #eff6ff; padding: 20px; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #1e40af;">Booking Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Booking ID:</strong></td>
+          <td style="padding: 8px 0;">${bookingId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Vehicle:</strong></td>
+          <td style="padding: 8px 0;">${vehicleName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Customer Name:</strong></td>
+          <td style="padding: 8px 0;">${userName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Customer Contact:</strong></td>
+          <td style="padding: 8px 0;">${userContact}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Rental Period:</strong></td>
+          <td style="padding: 8px 0;">${startDate} to ${endDate}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Total Days:</strong></td>
+          <td style="padding: 8px 0;">${totalDays} day(s)</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Total Amount:</strong></td>
+          <td style="padding: 8px 0; font-weight: bold; color: #10b981;">NPR ${totalAmount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280;"><strong>Pickup Location:</strong></td>
+          <td style="padding: 8px 0;">${pickupLocation}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Please log in to your vendor dashboard to view complete booking details and manage this reservation.</p>
+    <p>If you have any questions or concerns, please contact our support team.</p>
+    <p style="color: #64748b; font-size: 14px; margin-top: 20px;">This is an automated message. Please do not reply directly to this email.</p>
+  </div>
   `
 };
 

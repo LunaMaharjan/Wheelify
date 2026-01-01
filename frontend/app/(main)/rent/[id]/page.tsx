@@ -145,7 +145,7 @@ export default function VehicleDetailsPage() {
         }
 
         // Navigate to booking page (to be created)
-        router.push(`/rent/${vehicleId}/book`);
+        router.push(`/rent/book/?vehicleId=${vehicleId}`);
     };
 
     if (isLoading) {
@@ -332,7 +332,8 @@ export default function VehicleDetailsPage() {
                                 size="lg"
                                 className="w-full h-12 text-base font-semibold"
                                 onClick={handleBookNow}
-                                disabled={vehicle.status !== "available" || isBooking}
+                                // disabled={vehicle.status !== "available" || isBooking}
+                                disabled
                             >
                                 {isBooking ? (
                                     <>
