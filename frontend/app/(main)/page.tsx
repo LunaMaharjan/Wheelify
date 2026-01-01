@@ -1,3 +1,4 @@
+'use client'
 import Image from "next/image";
 import Link from "next/link";
 import { Search, Check, CreditCard, Car, Star } from "lucide-react";
@@ -5,8 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { vehicleTypes, popularVehicles, howItWorksSteps, testimonials } from "@/lib/mockData";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default async function Home() {
+export default function Home() {
+  const router = useRouter();
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
+
+
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  
+
+  const handleSearch = () => {
+   // redirect to rent page with search query as parameter
+    router.push(`/rent?q=${encodeURIComponent(localSearchQuery)}`);
+  };
   return (
     <div className="w-full">
       {/* Hero Section */}
@@ -31,10 +50,18 @@ export default async function Home() {
           <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              
               <Input
                 type="text"
                 placeholder="Search for vehicles"
                 className="pl-10 h-12 bg-white/95 text-base"
+                value={localSearchQuery}
+                      onChange={(e) => setLocalSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                             handleSearch();
+                                }
+                            }}
               />
             </div>
             <Button size="lg" className="h-12 px-8">
