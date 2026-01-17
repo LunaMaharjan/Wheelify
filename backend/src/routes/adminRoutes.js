@@ -14,6 +14,7 @@ import {
     getAllVehicles,
     approveVehicle,
     rejectVehicle,
+    getAllBookings,
 } from "../controllers/adminController.js";
 import { getLicenseSubmissions, reviewLicenseSubmission } from "../controllers/licenseController.js";
 
@@ -46,5 +47,8 @@ router.patch("/licenses/:id/review", reviewLicenseSubmission);
 router.get("/vehicles", getAllVehicles);
 router.patch("/vehicles/:id/approve", approveVehicle);
 router.patch("/vehicles/:id/reject", rejectVehicle);
+
+// Booking management routes
+router.get("/bookings", getAllBookings);
 
 export default router;

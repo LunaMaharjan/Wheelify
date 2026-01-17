@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import VendorApplication from "../models/vendorApplication.model.js";
 import Vehicle from "../models/vehicle.model.js";
+import Booking from "../models/booking.model.js";
 import sendEmail from "../utils/emailTemplates.js";
 
 // Get dashboard statistics
@@ -612,6 +613,27 @@ export const rejectVehicle = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to reject vehicle",
+        });
+    }
+};
+
+// Get all bookings
+export const getAllBookings = async (req, res) => {
+    try {
+        const bookings = await Booking.find()
+            .populate("userId", "name email contact")
+            .populate("vehicleId", "name category mainImage pricePerDay")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            bookings,
+        });
+    } catch (error) {
+        console.error("Get all bookings error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch bookings",
         });
     }
 };

@@ -232,6 +232,12 @@ export const rejectVehicle = async (vehicleId: string, message: string) => {
     return response.data;
 };
 
+// Admin API - Bookings
+export const getAllBookings = async () => {
+    const response = await axiosInstance.get("/admin/bookings");
+    return response.data;
+};
+
 // Public Search API - Vehicles
 export interface SearchVehiclesParams {
     query?: string;

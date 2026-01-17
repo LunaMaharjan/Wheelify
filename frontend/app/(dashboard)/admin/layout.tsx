@@ -22,6 +22,7 @@ import {
     User,
     ShieldCheck,
     Car,
+    Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -52,6 +53,11 @@ const adminNavItems = [
         title: "Vehicles",
         url: "/admin/vehicles",
         icon: Car,
+    },
+    {
+        title: "Bookings",
+        url: "/admin/bookings",
+        icon: Calendar,
     },
     {
         title: "Licenses",
