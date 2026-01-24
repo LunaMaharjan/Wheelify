@@ -5,7 +5,8 @@ import {
     getBookingById, 
     // completePayment, 
     cancelBooking,
-    checkAvailability
+    checkAvailability,
+    getVendorBookings
 } from "../controllers/bookingController.js";
 import userAuth from "../middlewares/userAuth.js";
 
@@ -19,6 +20,7 @@ router.use(userAuth);
 
 router.post("/create", createBooking);
 router.get("/my-bookings", getUserBookings);
+router.get("/vendor-bookings", getVendorBookings);
 router.get("/:id", getBookingById);
 // router.post("/:id/complete-payment", completePayment);
 router.post("/:id/cancel", cancelBooking);

@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getProfile, uploadLicense } from "@/lib/api";
+import { getProfile, uploadLicense, getUserBookings } from "@/lib/api";
 import { 
     Car, 
     CheckCircle, 
@@ -28,7 +28,8 @@ import {
     Edit,
     ChevronRight,
     TrendingUp,
-    Home
+    Home,
+    ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import Navbar from "@/components/Navigation";
@@ -57,12 +58,38 @@ type Rental = {
     status: "current" | "past";
 };
 
+type Booking = {
+    _id: string;
+    vehicleId: {
+        _id: string;
+        name: string;
+        category?: string;
+        mainImage?: string;
+        pricePerDay: number;
+    };
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    totalAmount: number;
+    pricePerDay: number;
+    bookingStatus: "pending" | "confirmed" | "active" | "completed" | "cancelled";
+    paymentStatus: "pending" | "paid" | "refunded";
+    pickupLocation?: {
+        address: string;
+        city: string;
+    };
+    createdAt: string;
+};
+
 export default function ProfilePage() {
     const [user, setUser] = useState<ProfileUser | null>(null);
     const [rentals, setRentals] = useState<{ current: Rental[]; past: Rental[] }>({
         current: [],
         past: [],
     });
+    const [activeBookings, setActiveBookings] = useState<Booking[]>([]);
+    const [rentalHistory, setRentalHistory] = useState<Booking[]>([]);
+    const [isLoadingBookings, setIsLoadingBookings] = useState(false);
     const [totalSpend, setTotalSpend] = useState(0);
     const [preferences, setPreferences] = useState({
         alerts: true,
@@ -113,12 +140,11 @@ export default function ProfilePage() {
                         past: pastRentals,
                     });
 
+                    // Total spend will be calculated from bookings data when fetched
                     const spendFromApi = response?.stats?.totalSpend;
-                    const spendFromData = [...currentRentals, ...pastRentals].reduce(
-                        (sum: number, rental: Rental) => sum + (rental?.amount || 0),
-                        0
-                    );
-                    setTotalSpend(typeof spendFromApi === "number" ? spendFromApi : spendFromData);
+                    if (typeof spendFromApi === "number") {
+                        setTotalSpend(spendFromApi);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to load profile:", error);
@@ -136,8 +162,105 @@ export default function ProfilePage() {
         };
     }, []);
 
+    useEffect(() => {
+        const fetchBookings = async () => {
+            setIsLoadingBookings(true);
+            try {
+                const response = await getUserBookings();
+                if (response?.success && response?.data) {
+                    // Get today's date in local timezone, normalized to midnight
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const todayTime = today.getTime();
+
+                    // Separate active bookings and rental history based on end date
+                    const active: Booking[] = [];
+                    const history: Booking[] = [];
+
+                    response.data.forEach((booking: Booking) => {
+                        // Skip cancelled bookings
+                        if (booking.bookingStatus === "cancelled") {
+                            return;
+                        }
+
+                        // Parse end date string (could be ISO string or date string)
+                        const endDateStr = booking.endDate;
+                        const endDate = new Date(endDateStr);
+                        
+                        // Normalize to date only (remove time component) in local timezone
+                        const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                        const endDateTime = endDateOnly.getTime();
+
+                        // If booking status is "completed", always add to history
+                        if (booking.bookingStatus === "completed") {
+                            history.push(booking);
+                            return;
+                        }
+
+                        // Compare dates: if end date is before today, it's in history
+                        // Using getTime() for reliable numeric comparison
+                        if (endDateTime < todayTime) {
+                            history.push(booking);
+                        } else {
+                            // End date is today or in the future - it's active
+                            active.push(booking);
+                        }
+                    });
+
+                    // Sort history by end date (most recent first)
+                    history.sort((a, b) => {
+                        const dateA = new Date(a.endDate).getTime();
+                        const dateB = new Date(b.endDate).getTime();
+                        return dateB - dateA;
+                    });
+
+                    // Sort active by start date (upcoming first)
+                    active.sort((a, b) => {
+                        const dateA = new Date(a.startDate).getTime();
+                        const dateB = new Date(b.startDate).getTime();
+                        return dateA - dateB;
+                    });
+
+                    console.log("Total bookings:", response.data.length);
+                    console.log("Active bookings:", active.length);
+                    console.log("Rental history:", history.length);
+                    console.log("Today:", today.toISOString());
+                    console.log("Sample booking end dates:", response.data.slice(0, 3).map((b: Booking) => ({
+                        id: b._id.slice(-8),
+                        endDate: b.endDate,
+                        status: b.bookingStatus,
+                        vehicle: b.vehicleId.name
+                    })));
+
+                    setActiveBookings(active);
+                    setRentalHistory(history);
+
+                    // Calculate total spend from all bookings
+                    const totalSpendFromBookings = response.data.reduce(
+                        (sum: number, booking: Booking) => {
+                            if (booking.bookingStatus !== "cancelled" && booking.paymentStatus === "paid") {
+                                return sum + (booking.totalAmount || 0);
+                            }
+                            return sum;
+                        },
+                        0
+                    );
+                    setTotalSpend(totalSpendFromBookings);
+                }
+            } catch (error) {
+                console.error("Failed to fetch bookings:", error);
+            } finally {
+                setIsLoadingBookings(false);
+            }
+        };
+
+        if (user && user.role === "user") {
+            fetchBookings();
+        }
+    }, [user]);
+
     const formatCurrency = (value: number) =>
-        new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+        `Rs. ${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const formatDate = (date: string | undefined) => {
         if (!date) return "—";
@@ -306,7 +429,7 @@ export default function ProfilePage() {
                                 <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
                                     <div>
                                         <p className="text-xs text-slate-600 mb-1">Active Rentals</p>
-                                        <p className="text-2xl font-bold text-slate-900">{rentals.current.length}</p>
+                                        <p className="text-2xl font-bold text-slate-900">{activeBookings.length}</p>
                                     </div>
                                     <div className="h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center">
                                         <Clock className="h-6 w-6 text-slate-600" />
@@ -314,8 +437,8 @@ export default function ProfilePage() {
                                 </div>
                                 <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
                                     <div>
-                                        <p className="text-xs text-slate-600 mb-1">Completed</p>
-                                        <p className="text-2xl font-bold text-slate-900">{rentals.past.length}</p>
+                                        <p className="text-xs text-slate-600 mb-1">Rental History</p>
+                                        <p className="text-2xl font-bold text-slate-900">{rentalHistory.length}</p>
                                     </div>
                                     <div className="h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center">
                                         <CheckCircle className="h-6 w-6 text-slate-600" />
@@ -489,83 +612,128 @@ export default function ProfilePage() {
                             </TabsList>
 
                             <TabsContent value="rentals" className="space-y-6">
-                                {/* Current Rentals */}
+                                {/* Active Rentals */}
                                 <Card className="border-slate-200 shadow-sm">
                                     <CardHeader>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <CardTitle className="text-lg">Active Rentals</CardTitle>
-                                                <CardDescription>Your ongoing bookings</CardDescription>
+                                                <CardDescription>Your current and upcoming bookings</CardDescription>
                                             </div>
-                                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-                                                {rentals.current.length} Active
-                                            </Badge>
+                                            <div className="flex items-center gap-3">
+                                                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                    {activeBookings.length} Active
+                                                </Badge>
+                                                <Link href="/bookings">
+                                                    <Button variant="outline" size="sm" className="gap-2">
+                                                        View All
+                                                        <ArrowRight className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>
-                                        {rentals.current.length === 0 ? (
+                                        {isLoadingBookings ? (
+                                            <div className="text-center py-12">
+                                                <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
+                                                <p className="text-slate-600 font-medium">Loading bookings...</p>
+                                            </div>
+                                        ) : activeBookings.length === 0 ? (
                                             <div className="text-center py-12">
                                                 <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
                                                     <Car className="h-8 w-8 text-slate-400" />
                                                 </div>
-                                                <p className="text-slate-600 font-medium mb-2">No active rentals</p>
-                                                <p className="text-sm text-slate-500">Book a vehicle to get started</p>
+                                                <p className="text-slate-600 font-medium mb-2">No active bookings</p>
+                                                <p className="text-sm text-slate-500 mb-4">Book a vehicle to get started</p>
+                                                <Link href="/rent">
+                                                    <Button variant="outline">Browse Vehicles</Button>
+                                                </Link>
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {rentals.current.map((rental) => (
-                                                    <div
-                                                        key={rental.id}
-                                                        className="group p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all bg-white"
+                                                {activeBookings.map((booking) => (
+                                                    <Link
+                                                        key={booking._id}
+                                                        href={`/rent/confirmation?bookingId=${booking._id}`}
                                                     >
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                                                                    <Car className="h-6 w-6 text-white" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-semibold text-slate-900 mb-1">{rental.vehicle}</p>
-                                                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                                        <Calendar className="h-3 w-3" />
-                                                                        <span>{formatDate(rental.startDate)} → {formatDate(rental.endDate)}</span>
+                                                        <div className="group p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all bg-white cursor-pointer">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                                                                        <Car className="h-6 w-6 text-white" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="font-semibold text-slate-900 mb-1">{booking.vehicleId.name}</p>
+                                                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                                            <Calendar className="h-3 w-3" />
+                                                                            <span>{formatDate(booking.startDate)} → {formatDate(booking.endDate)}</span>
+                                                                        </div>
+                                                                        {booking.vehicleId.category && (
+                                                                            <Badge variant="outline" className="mt-1 text-xs">
+                                                                                {booking.vehicleId.category}
+                                                                            </Badge>
+                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="text-right flex items-center gap-4">
-                                                                <div>
-                                                                    <p className="text-lg font-bold text-slate-900">
-                                                                        {formatCurrency(rental.amount)}
-                                                                    </p>
-                                                                    <Badge className="mt-1 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
-                                                                        <Clock className="h-3 w-3 mr-1" />
-                                                                        Active
-                                                                    </Badge>
+                                                                <div className="text-right flex items-center gap-4">
+                                                                    <div>
+                                                                        <p className="text-lg font-bold text-slate-900">
+                                                                            Rs. {booking.totalAmount.toLocaleString("en-US", {
+                                                                                minimumFractionDigits: 2,
+                                                                                maximumFractionDigits: 2,
+                                                                            })}
+                                                                        </p>
+                                                                        <Badge className={`mt-1 ${
+                                                                            booking.bookingStatus === "active"
+                                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                                                                : booking.bookingStatus === "confirmed"
+                                                                                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50"
+                                                                                : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50"
+                                                                        }`}>
+                                                                            <Clock className="h-3 w-3 mr-1" />
+                                                                            {booking.bookingStatus.charAt(0).toUpperCase() + booking.bookingStatus.slice(1)}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
                                                                 </div>
-                                                                <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    </Link>
                                                 ))}
                                             </div>
                                         )}
                                     </CardContent>
                                 </Card>
 
-                                {/* Past Rentals */}
+                                {/* Rental History */}
                                 <Card className="border-slate-200 shadow-sm">
                                     <CardHeader>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <CardTitle className="text-lg">Rental History</CardTitle>
-                                                <CardDescription>Your completed bookings</CardDescription>
+                                                <CardDescription>Your past completed bookings</CardDescription>
                                             </div>
-                                            <Badge variant="outline" className="border-slate-300 text-slate-700">
-                                                {rentals.past.length} Completed
-                                            </Badge>
+                                            <div className="flex items-center gap-3">
+                                                <Badge variant="outline" className="border-slate-300 text-slate-700">
+                                                    {rentalHistory.length} Completed
+                                                </Badge>
+                                                <Link href="/bookings">
+                                                    <Button variant="outline" size="sm" className="gap-2">
+                                                        View All
+                                                        <ArrowRight className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>
-                                        {rentals.past.length === 0 ? (
+                                        {isLoadingBookings ? (
+                                            <div className="text-center py-12">
+                                                <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
+                                                <p className="text-slate-600 font-medium">Loading rental history...</p>
+                                            </div>
+                                        ) : rentalHistory.length === 0 ? (
                                             <div className="text-center py-12">
                                                 <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
                                                     <CheckCircle className="h-8 w-8 text-slate-400" />
@@ -575,38 +743,48 @@ export default function ProfilePage() {
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {rentals.past.map((rental) => (
-                                                    <div
-                                                        key={rental.id}
-                                                        className="group p-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all bg-white"
+                                                {rentalHistory.map((booking) => (
+                                                    <Link
+                                                        key={booking._id}
+                                                        href={`/rent/confirmation?bookingId=${booking._id}`}
                                                     >
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                                                                    <Car className="h-6 w-6 text-slate-500" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-semibold text-slate-900 mb-1">{rental.vehicle}</p>
-                                                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                                        <Calendar className="h-3 w-3" />
-                                                                        <span>{formatDate(rental.startDate)} → {formatDate(rental.endDate)}</span>
+                                                        <div className="group p-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all bg-white cursor-pointer">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                                                        <Car className="h-6 w-6 text-slate-500" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="font-semibold text-slate-900 mb-1">{booking.vehicleId.name}</p>
+                                                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                                            <Calendar className="h-3 w-3" />
+                                                                            <span>{formatDate(booking.startDate)} → {formatDate(booking.endDate)}</span>
+                                                                        </div>
+                                                                        {booking.vehicleId.category && (
+                                                                            <Badge variant="outline" className="mt-1 text-xs">
+                                                                                {booking.vehicleId.category}
+                                                                            </Badge>
+                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="text-right flex items-center gap-4">
-                                                                <div>
-                                                                    <p className="text-lg font-bold text-slate-900">
-                                                                        {formatCurrency(rental.amount)}
-                                                                    </p>
-                                                                    <Badge variant="outline" className="mt-1 border-slate-300 text-slate-600">
-                                                                        <CheckCircle className="h-3 w-3 mr-1" />
-                                                                        Completed
-                                                                    </Badge>
+                                                                <div className="text-right flex items-center gap-4">
+                                                                    <div>
+                                                                        <p className="text-lg font-bold text-slate-900">
+                                                                            Rs. {booking.totalAmount.toLocaleString("en-US", {
+                                                                                minimumFractionDigits: 2,
+                                                                                maximumFractionDigits: 2,
+                                                                            })}
+                                                                        </p>
+                                                                        <Badge variant="outline" className="mt-1 border-slate-300 text-slate-600">
+                                                                            <CheckCircle className="h-3 w-3 mr-1" />
+                                                                            Completed
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
                                                                 </div>
-                                                                <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    </Link>
                                                 ))}
                                             </div>
                                         )}

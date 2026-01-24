@@ -42,8 +42,8 @@ const vendorNavItems = [
         icon: Car,
     },
     {
-        title: "Rentals",
-        url: "/vendor/rentals",
+        title: "Bookings",
+        url: "/vendor/bookings",
         icon: Calendar,
     },
     {

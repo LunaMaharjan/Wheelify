@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { getProfile, logout as logoutRequest } from '@/lib/api';
 
 interface User {
+    licenseStatus: string;
     id: string;
     name: string;
     email: string;

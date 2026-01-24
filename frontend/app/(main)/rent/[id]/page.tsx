@@ -99,7 +99,7 @@ export default function VehicleDetailsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isBooking, setIsBooking] = useState(false);
-    const { isAuthenticated, isLoading: authLoading } = useAuthGuard();
+    const { isAuthenticated, isLoading: authLoading, user } = useAuthGuard();
 
     useEffect(() => {
         if (vehicleId) {
@@ -328,6 +328,7 @@ export default function VehicleDetailsPage() {
                             <Separator />
 
                             {/* Book Now Button */}
+                            {user?.licenseStatus === "approved" ? (
                             <Button
                                 size="lg"
                                 className="w-full h-12 text-base font-semibold"
@@ -346,7 +347,12 @@ export default function VehicleDetailsPage() {
                                     </>
                                 )}
                             </Button>
-
+                            ) : (
+                                <div className="flex items-center justify-center">
+                                    <AlertCircle className="h-5 w-5 text-red-500" />
+                                    <p className="text-sm text-red-500 ml-2">Please upload your license to book this vehicle</p>
+                                </div>
+                            )}
                             {vehicle.status !== "available" && (
                                 <p className="text-sm text-muted-foreground text-center">
                                     This vehicle is currently {vehicle.status}

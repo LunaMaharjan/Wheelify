@@ -195,42 +195,42 @@ export const getBookingById = async (req, res) => {
     }
 };
 
-// export const completePayment = async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const userId = req.userId;
+export const getVendorBookings = async (req, res) => {
+    try {
+        const vendorId = req.userId;
 
-//         const booking = await Booking.findOne({ _id: id, userId });
+        // Verify user is a vendor
+        const user = await User.findById(vendorId);
+        if (!user || user.role !== "vendor") {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Vendor privileges required."
+            });
+        }
 
-//         if (!booking) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Booking not found"
-//             });
-//         }
+        // Get all vehicles owned by this vendor
+        const vendorVehicles = await Vehicle.find({ vendorId }).select("_id");
+        const vehicleIds = vendorVehicles.map(v => v._id);
 
-//         if (booking.paymentStatus === "paid") {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Payment already completed"
-//             });
-//         }
+        // Get all bookings for these vehicles
+        const bookings = await Booking.find({ vehicleId: { $in: vehicleIds } })
+            .populate("userId", "name email contact")
+            .populate("vehicleId", "name category mainImage pricePerDay")
+            .sort({ createdAt: -1 });
 
-//         // Payment should be completed through eSewa payment flow
-//         // This endpoint is kept for backward compatibility but redirects to initiate payment
-//         return res.status(400).json({
-//             success: false,
-//             message: "Please initiate payment through eSewa. Use /api/payments/esewa/initiate endpoint.",
-//             redirectTo: `/api/payments/esewa/initiate`
-//         });
-//     } catch (error) {
-//         console.error("Error completing payment:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Failed to complete payment"
-//         });
-//     }
-// };
+        res.json({
+            success: true,
+            data: bookings
+        });
+    } catch (error) {
+        console.error("Error fetching vendor bookings:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch vendor bookings"
+        });
+    }
+};
+
 
 export const cancelBooking = async (req, res) => {
     try {
