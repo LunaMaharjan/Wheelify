@@ -373,6 +373,15 @@ const sendEmail = async (email, type, data) => {
             subject: 'Verify Your Email - Wheelify',
             template: emailTemplates.verifyEmail(data.verificationLink)
         },
+
+        'booking-confirmation-user': {
+            subject: 'Booking Confirmed - Wheelify',
+            template: emailTemplates.bookingConfirmationUser(data.userName, data.vehicleName, data.startDate, data.endDate, data.totalAmount, data.totalDays, data.pickupLocation, data.bookingId, data.vendorContact)
+        },
+        'booking-confirmation-vendor': {
+            subject: 'New Booking Received - Wheelify',
+            template: emailTemplates.bookingConfirmationVendor(data.vendorName, data.vehicleName, data.userName, data.userContact, data.startDate, data.endDate, data.totalAmount, data.totalDays, data.pickupLocation, data.bookingId)
+        },
         'password-reset-success': {
             subject: 'Password Changed Successfully',
             template: emailTemplates.passwordResetSuccess()

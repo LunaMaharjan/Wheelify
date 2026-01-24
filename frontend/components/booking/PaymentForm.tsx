@@ -139,13 +139,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                 </Alert>
             )}
 
-            {/* Payment Terms */}
-            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                <p>✓ Your booking will be confirmed once payment is successful.</p>
-                <p>✓ You will receive a confirmation email with booking details.</p>
-                <p>✓ The vehicle will be reserved until the specified dates.</p>
-            </div>
-
             {/* Hidden Form for eSewa Submission */}
             <form ref={formRef} style={{ display: "none" }} />
 
@@ -162,7 +155,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                     </>
                 ) : (
                     <>
-                        <span className="mr-2">💳</span>
                         Pay Rs. {bookingData.totalAmount.toFixed(2)} via eSewa
                     </>
                 )}

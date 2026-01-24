@@ -195,42 +195,42 @@ export const getBookingById = async (req, res) => {
     }
 };
 
-export const completePayment = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userId = req.userId;
+// export const completePayment = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const userId = req.userId;
 
-        const booking = await Booking.findOne({ _id: id, userId });
+//         const booking = await Booking.findOne({ _id: id, userId });
 
-        if (!booking) {
-            return res.status(404).json({
-                success: false,
-                message: "Booking not found"
-            });
-        }
+//         if (!booking) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Booking not found"
+//             });
+//         }
 
-        if (booking.paymentStatus === "paid") {
-            return res.status(400).json({
-                success: false,
-                message: "Payment already completed"
-            });
-        }
+//         if (booking.paymentStatus === "paid") {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Payment already completed"
+//             });
+//         }
 
-        // Payment should be completed through eSewa payment flow
-        // This endpoint is kept for backward compatibility but redirects to initiate payment
-        return res.status(400).json({
-            success: false,
-            message: "Please initiate payment through eSewa. Use /api/payments/esewa/initiate endpoint.",
-            redirectTo: `/api/payments/esewa/initiate`
-        });
-    } catch (error) {
-        console.error("Error completing payment:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to complete payment"
-        });
-    }
-};
+//         // Payment should be completed through eSewa payment flow
+//         // This endpoint is kept for backward compatibility but redirects to initiate payment
+//         return res.status(400).json({
+//             success: false,
+//             message: "Please initiate payment through eSewa. Use /api/payments/esewa/initiate endpoint.",
+//             redirectTo: `/api/payments/esewa/initiate`
+//         });
+//     } catch (error) {
+//         console.error("Error completing payment:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Failed to complete payment"
+//         });
+//     }
+// };
 
 export const cancelBooking = async (req, res) => {
     try {

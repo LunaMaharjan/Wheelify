@@ -250,13 +250,13 @@ const PaymentSuccessPage: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="mt-8 space-y-3">
-                    <Link href="/profile/bookings">
+                    <Link href="/profile">
                         <Button className="w-full py-6 text-base font-semibold bg-blue-600 hover:bg-blue-700">
                             <ShoppingCart className="w-5 h-5 mr-2" />
                             View All My Bookings
                         </Button>
                     </Link>
-                    <Link href="/rent">
+                    <Link href="/">
                         <Button variant="outline" className="w-full py-6 text-base font-semibold">
                             <Home className="w-5 h-5 mr-2" />
                             Back to Home

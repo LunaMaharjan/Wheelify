@@ -280,9 +280,7 @@ export const initiateEsewaPayment = async (req, res) => {
         
         // Remove trailing slash if present
         serverUrl = serverUrl.replace(/\/$/, '');
-        
-        const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
-        
+                
         // eSewa callback URL - must be publicly accessible with proper format
         const successUrl = `${serverUrl}/api/payments/esewa/callback`;
         const failureUrl = `${serverUrl}/api/payments/esewa/callback`;
@@ -501,6 +499,7 @@ export const esewaPaymentCallback = async (req, res) => {
                             : 'N/A';
                         
                         // Send email to user
+                        console.log("Sending email to user:", booking);
                         await sendEmail(booking.userId.email, 'booking-confirmation-user', {
                             userName: booking.userId.name,
                             vehicleName: booking.vehicleId.name,
