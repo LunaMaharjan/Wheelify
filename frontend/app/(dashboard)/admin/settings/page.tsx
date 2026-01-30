@@ -1,9 +1,12 @@
+'use effect';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import TermsEditor from "@/components/admin/TermsEditor";
 
 export default function AdminSettingsPage() {
     return (
@@ -12,11 +15,11 @@ export default function AdminSettingsPage() {
                 <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
                 <p className="text-muted-foreground">
                     Manage platform settings and configurations
-                </p>
+                </p>    
             </div>
 
             <div className="grid gap-6">
-                <Card>
+                {/* <Card>
                     <CardHeader>
                         <CardTitle>General Settings</CardTitle>
                         <CardDescription>
@@ -70,7 +73,10 @@ export default function AdminSettingsPage() {
                         <Separator />
                         <Button>Save Changes</Button>
                     </CardContent>
-                </Card>
+                </Card> */}
+
+                        <TermsEditor />
+
             </div>
         </div>
     );

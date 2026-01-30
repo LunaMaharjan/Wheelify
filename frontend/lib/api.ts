@@ -335,3 +335,15 @@ export const checkEsewaPaymentStatus = async (data: { transactionUuid: string })
     return response.data;
 };
 
+// Content API - Terms
+export const getTerms = async () => {
+    const response = await axiosInstance.get("/content/terms");
+    return response.data;
+};
+
+// Admin - update terms
+export const updateTerms = async (content: string) => {
+    const response = await axiosInstance.patch("/admin/terms", { content });
+    return response.data;
+};
+

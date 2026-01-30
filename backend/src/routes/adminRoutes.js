@@ -15,7 +15,9 @@ import {
     approveVehicle,
     rejectVehicle,
     getAllBookings,
+    // ...existing imports
 } from "../controllers/adminController.js";
+import { updateTerms } from "../controllers/contentController.js";
 import { getLicenseSubmissions, reviewLicenseSubmission } from "../controllers/licenseController.js";
 
 const router = express.Router();
@@ -50,5 +52,8 @@ router.patch("/vehicles/:id/reject", rejectVehicle);
 
 // Booking management routes
 router.get("/bookings", getAllBookings);
+
+// Terms management (admin)
+router.patch("/terms", updateTerms);
 
 export default router;

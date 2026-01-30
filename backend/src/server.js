@@ -8,6 +8,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import contentRoutes from "./routes/contentRoutes.js";
 
 env.config();
 
@@ -41,6 +42,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/vendor", vendorRoutes);
 app.use("/api/bookings", bookingRoutes)
 app.use("/api/payments", paymentRoutes);
+app.use("/api/content", contentRoutes);
 app.get("/", (_, response) =>
   response.json({ info: "Express app" })
 );
