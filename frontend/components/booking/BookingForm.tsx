@@ -31,7 +31,7 @@ interface BookingFormProps {
     isLoading?: boolean;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({
+const BookingForm = ({
     vehicle,
     onSubmit,
     isLoading = false,
@@ -47,6 +47,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [totalDays, setTotalDays] = useState<number>(0);
     const [totalAmount, setTotalAmount] = useState<number>(0);
+    const SECURITY_DEPOSIT = 5000; // fixed refundable security deposit
 
     // Calculate total days and amount when dates change
     useEffect(() => {
@@ -59,7 +60,8 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
                 );
                 setTotalDays(days);
-                setTotalAmount(days * vehicle.pricePerDay);
+                // include refundable security deposit in final amount
+                setTotalAmount(days * vehicle.pricePerDay + SECURITY_DEPOSIT);
             } else {
                 setTotalDays(0);
                 setTotalAmount(0);
@@ -249,7 +251,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
                         <span className="text-gray-600 dark:text-gray-400">
                             {totalDays} day{totalDays !== 1 ? "s" : ""} × Rs. {vehicle.pricePerDay}/day
                         </span>
-                        <span className="font-medium">Rs. {totalAmount.toFixed(2)}</span>
+                        <span className="font-medium">Rs. {(totalDays * vehicle.pricePerDay).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Security deposit (refundable)</span>
+                        <span className="font-medium">Rs. {SECURITY_DEPOSIT.toFixed(2)}</span>
                     </div>
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold text-lg">
                         <span>Total Amount</span>
@@ -257,6 +263,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
                             Rs. {totalAmount.toFixed(2)}
                         </span>
                     </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        The security deposit of Rs. {SECURITY_DEPOSIT.toFixed(2)} is collected at the time of booking and will be refunded once the rental finishes and the vehicle is returned in the same condition.
+                    </p>
                 </div>
             )}
 
