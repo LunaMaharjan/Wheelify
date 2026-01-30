@@ -5,10 +5,10 @@ import User from "../models/user.model.js";
 import sendEmail from "../utils/emailTemplates.js";
 
 // eSewa API configuration
-const ESEWA_BASE_URL = process.env.ESEWA_BASE_URL || "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
-const ESEWA_STATUS_URL = process.env.ESEWA_STATUS_URL || "https://rc.esewa.com.np/api/epay/transaction/status/";
-const ESEWA_PRODUCT_CODE = process.env.ESEWA_PRODUCT_CODE || "EPAYTEST";    
-const ESEWA_SECRET_KEY = process.env.ESEWA_SECRET_KEY || "8gBm/:&EnhH.1/q";
+const ESEWA_BASE_URL = process.env.ESEWA_BASE_URL
+const ESEWA_PRODUCT_CODE = process.env.ESEWA_PRODUCT_CODE   
+const ESEWA_SECRET_KEY = process.env.ESEWA_SECRET_KEY;
+const frontendUrl = process.env.FRONTEND_URL;
 
 // Validate eSewa configuration
 if (!ESEWA_SECRET_KEY) {
@@ -116,10 +116,6 @@ const createBookingFromPaymentData = async (bookingData, userId) => {
         notes: notes || "",
         isPaymentDeferred: false
     });
-
-    // Mark vehicle as unavailable
-    // await Vehicle.findByIdAndUpdate(vehicleId, { isAvailable: false });
-
     return booking;
 };
 
@@ -234,59 +230,11 @@ export const initiateEsewaPayment = async (req, res) => {
             transaction_uuid: transactionUuid,
             product_code: ESEWA_PRODUCT_CODE
         });
-        
-        // Debug logging (remove in production)
-        console.log("=== eSewa Payment Initiation ===");
-        console.log("Amount:", totalAmount);
-        console.log("Total Amount (formatted):", totalAmountFormatted);
-        console.log("Transaction UUID:", transactionUuid);
-        console.log("Product Code:", ESEWA_PRODUCT_CODE);
-        console.log("Secret Key:", ESEWA_SECRET_KEY ? "Set" : "Not Set");
-        console.log("Secret Key Length:", ESEWA_SECRET_KEY ? ESEWA_SECRET_KEY.length : 0);
-        console.log("Signed Field Names:", signedFieldNames);
-        console.log("Signature Message:", `total_amount=${totalAmountFormatted},transaction_uuid=${transactionUuid},product_code=${ESEWA_PRODUCT_CODE}`);
-        console.log("Generated Signature:", signature);
-        console.log("Signature Length:", signature.length);
-        console.log("================================");
-
-        // Use SERVER_URL if available, otherwise construct from request
-        // For eSewa callback, we need a publicly accessible URL with proper protocol
-        let serverUrl = process.env.SERVER_URL || process.env.BACKEND_URL;
-        
-        // If SERVER_URL is not set, try to construct it
-        if (!serverUrl) {   
-            // Always use backend server URL, not frontend
-            // In development, use localhost with backend port
-            const backendPort = process.env.PORT || 5001;
-            serverUrl = `http://localhost:${backendPort}`;
-            
-            // In production, you should set SERVER_URL or BACKEND_URL environment variable
-            // For now, fallback to localhost (this should be configured properly in production)
-            if (process.env.NODE_ENV === 'production') {
-                console.warn("⚠️  WARNING: SERVER_URL or BACKEND_URL not set in production!");
-                console.warn("   Please set SERVER_URL or BACKEND_URL environment variable.");
-            }
-        }
-        
-        // Ensure URL has protocol (http:// or https://)
-        if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-            // If no protocol, assume http for localhost, https otherwise
-            if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-                serverUrl = `http://${serverUrl}`;
-            } else {
-                serverUrl = `https://${serverUrl}`;
-            }
-        }
-        
-        // Remove trailing slash if present
-        serverUrl = serverUrl.replace(/\/$/, '');
+        let serverUrl = process.env.BACKEND_URL;
                 
-        // eSewa callback URL - must be publicly accessible with proper format
         const successUrl = `${serverUrl}/api/payments/esewa/callback`;
         const failureUrl = `${serverUrl}/api/payments/esewa/callback`;
         
-        console.log("Callback URLs:", { successUrl, failureUrl });
-
         // Return payment form data for frontend to submit
         // Note: Booking will be created only after payment succeeds in the callback
         res.json({
@@ -326,108 +274,27 @@ export const initiateEsewaPayment = async (req, res) => {
  */
 export const esewaPaymentCallback = async (req, res) => {
     try {
-        // Log all incoming data for debugging
-        console.log("=== eSewa Callback Received ===");
-        console.log("Method:", req.method);
-        console.log("Query params:", JSON.stringify(req.query, null, 2));
-        console.log("Body:", JSON.stringify(req.body, null, 2));
-        console.log("Headers:", JSON.stringify(req.headers, null, 2));
-        console.log("================================");
 
-        // eSewa can send data via GET (query params) or POST (form data)
-        // Try to get data from both sources
-        const queryData = req.query || {};
-        const bodyData = req.body || {};
+        let callbackData = req.query || {};
         
-        // Merge both sources (body takes precedence for POST)
-        const callbackData = {
-            ...queryData,
-            ...bodyData
-        };
-
-        // Decode base64-encoded payload if eSewa sent everything in a single `data` field
-        // Some gateways send `data` as base64 JSON instead of individual params
-        if (callbackData.data) {
-            try {
-                const decodedJson = Buffer.from(callbackData.data, "base64").toString("utf-8");
-                let decodedObject = null;
-
-                try {
-                    decodedObject = JSON.parse(decodedJson);
-                } catch {
-                    // Some providers send URL-encoded query strings instead of JSON
-                    const params = new URLSearchParams(decodedJson);
-                    decodedObject = Object.fromEntries(params.entries());
-                }
-
-                if (decodedObject) {
-                    Object.assign(callbackData, decodedObject);
-                    console.log("Decoded base64 callback data:", decodedObject);
-                    delete callbackData.data; // avoid double-handling later
-                }
-            } catch (decodeErr) {
-                console.error("Failed to decode base64 callback data:", decodeErr);
-            }
-        }
+        const decodedJson = Buffer.from(callbackData.data, "base64").toString("utf-8");
+        callbackData = JSON.parse(decodedJson);
 
         // Extract data - handle both standard and alternative field names
-        const transaction_code = callbackData.transaction_code || callbackData.ref_id || callbackData.transactionCode;
-        const status = callbackData.status || callbackData.Status;
-        const total_amount = callbackData.total_amount || callbackData.totalAmount;
+        const transaction_code = callbackData.transaction_code;
+        const status = callbackData.status;
+        const total_amount = callbackData.total_amount;
         // transaction_uuid is critical - try multiple variations
-        const transaction_uuid = callbackData.transaction_uuid || 
-                                 callbackData.transactionUuid ||
-                                 callbackData.uuid ||
-                                 callbackData.transactionUUID;
-        const product_code = callbackData.product_code || callbackData.productCode;
-        const signed_field_names = callbackData.signed_field_names || callbackData.signedFieldNames;
-        const signature = callbackData.signature;
-
-        console.log("Extracted callback data:", {
-            transaction_code,
-            status,
-            total_amount,
-            transaction_uuid,
-            product_code,
-            signed_field_names: signed_field_names ? signed_field_names.substring(0, 50) + "..." : null,
-            signature: signature ? signature.substring(0, 20) + "..." : null
-        });
-
-        // Try to find transaction_uuid - use fallback if not in callback
-        let actualTransactionUuid = transaction_uuid;
-        
-        if (!actualTransactionUuid) {
-            console.error("Missing transaction_uuid in callback data");
-            console.error("Available keys in callbackData:", Object.keys(callbackData));
-            console.error("Full callbackData:", JSON.stringify(callbackData, null, 2));
-            
-            // Try to find transaction_uuid in pending bookings by matching other fields
-            // This is a fallback if eSewa doesn't send transaction_uuid
-            let foundUuid = null;
-            if (total_amount && product_code) {
-                for (const [uuid, bookingData] of pendingBookingData.entries()) {
-                    const expectedTotal = bookingData.totalAmount;
-                    if (Math.abs(parseFloat(total_amount) - expectedTotal) < 0.01) {
-                        foundUuid = uuid;
-                        console.log("Found matching transaction_uuid by amount:", foundUuid);
-                        break;
-                    }
-                }
-            }
-            
-            if (!foundUuid) {
-                return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/failed?error=missing_transaction_uuid`);
-            }
-            
-            actualTransactionUuid = foundUuid;
-            console.log("Using found transaction_uuid:", actualTransactionUuid);
-        }
+        const transaction_uuid = callbackData.transaction_uuid;
+        const product_code = callbackData.product_code;
+        const signed_field_names = callbackData.signed_field_names;
+        const signature = callbackData.signature;        
 
         // Retrieve booking data from temporary storage
-        const bookingData = pendingBookingData.get(actualTransactionUuid);
+        const bookingData = pendingBookingData.get(transaction_uuid);
 
         if (!bookingData) {
-            return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/failed?error=booking_data_not_found`);
+            return res.redirect(`${frontendUrl}/payment/failed?error=booking_data_not_found`);
         }
 
         // Verify signature if provided
@@ -442,7 +309,7 @@ export const esewaPaymentCallback = async (req, res) => {
                         case "transaction_code": fieldValue = transaction_code || ""; break;
                         case "status": fieldValue = status || ""; break;
                         case "total_amount": fieldValue = total_amount || ""; break;
-                        case "transaction_uuid": fieldValue = actualTransactionUuid || ""; break;
+                        case "transaction_uuid": fieldValue = transaction_uuid || ""; break;
                         case "product_code": fieldValue = product_code || ""; break;
                         case "signed_field_names": fieldValue = signed_field_names || ""; break;
                         default: fieldValue = "";
@@ -471,7 +338,7 @@ export const esewaPaymentCallback = async (req, res) => {
                     const booking = await createBookingFromPaymentData(bookingData, bookingData.userId);
                     
                     // Update booking with eSewa transaction details
-                    booking.esewaTransactionUuid = actualTransactionUuid;
+                    booking.esewaTransactionUuid = transaction_uuid;
                     booking.esewaTransactionCode = transaction_code || null;
                     booking.esewaRefId = transaction_code || null;
                     await booking.save();
@@ -538,215 +405,32 @@ export const esewaPaymentCallback = async (req, res) => {
                     }
                     
                     // Remove from temporary storage
-                    pendingBookingData.delete(actualTransactionUuid);
+                    pendingBookingData.delete(transaction_uuid);
                     
-                    return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/success?bookingId=${booking._id}`);
+                    return res.redirect(`${frontendUrl}/payment/success?bookingId=${booking._id}`);
                 } else {
                     // Amount mismatch - potential fraud
                     console.error("Amount mismatch. Expected:", bookingData.totalAmount, "Received:", total_amount);
                     // Remove from temporary storage
-                    pendingBookingData.delete(actualTransactionUuid);
-                    return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/failed?error=amount_mismatch`);
+                    pendingBookingData.delete(transaction_uuid);
+                    return res.redirect(`${frontendUrl}/payment/failed?error=amount_mismatch`);
                 }
             } catch (createError) {
                 console.error("Error creating booking after payment:", createError);
                 // Remove from temporary storage
-                pendingBookingData.delete(actualTransactionUuid);
-                return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/failed?error=booking_creation_failed`);
+                pendingBookingData.delete(transaction_uuid);
+                return res.redirect(`${frontendUrl}/payment/failed?error=booking_creation_failed`);
             }
         } else if (status === "CANCELED" || status === "FAILURE") {
             // Payment cancelled/failed - no booking created, remove from temp storage
-            pendingBookingData.delete(actualTransactionUuid);
-            return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/cancelled`);
+            pendingBookingData.delete(transaction_uuid);
+            return res.redirect(`${frontendUrl}/payment/cancelled`);
         } else {
             // Pending or other statuses - keep in temp storage for status check
-            return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/pending?status=${status || "PENDING"}&transactionUuid=${actualTransactionUuid}`);
+            return res.redirect(`${frontendUrl}/payment/pending?status=${status || "PENDING"}&transactionUuid=${transaction_uuid}`);
         }
     } catch (error) {
         console.error("Error handling eSewa payment callback:", error);
-        return res.redirect(`${process.env.CLIENT_URL || "http://localhost:3000"}/payment/failed?error=callback_error`);
+        return res.redirect(`${frontendUrl}/payment/failed?error=callback_error`);
     }
 };
-
-/**
- * Check eSewa payment status
- */
-export const checkEsewaPaymentStatus = async (req, res) => {
-    try {
-        const { transactionUuid, bookingId } = req.body;
-
-        if (!transactionUuid && !bookingId) {
-            return res.status(400).json({
-                success: false,
-                message: "Transaction UUID or Booking ID is required"
-            });
-        }
-
-        let booking = null;
-        let bookingData = null;
-        let uuid = null;
-        let totalAmount = null;
-
-        // Try to find existing booking first
-        if (bookingId) {
-            booking = await Booking.findById(bookingId);
-            if (booking && booking.esewaTransactionUuid) {
-                uuid = booking.esewaTransactionUuid;
-                totalAmount = booking.totalAmount;
-            }
-        } else {
-            // Try to find booking by transaction UUID
-            booking = await Booking.findOne({ esewaTransactionUuid: transactionUuid });
-            if (booking) {
-                uuid = booking.esewaTransactionUuid;
-                totalAmount = booking.totalAmount;
-            } else {
-                // Booking doesn't exist yet, check temporary storage
-                bookingData = pendingBookingData.get(transactionUuid);
-                if (bookingData) {
-                    uuid = transactionUuid;
-                    totalAmount = bookingData.totalAmount;
-                }
-            }
-        }
-
-        if (!uuid) {
-            return res.status(404).json({
-                success: false,
-                message: "Transaction not found"
-            });
-        }
-
-        // Check status from eSewa API
-        try {
-            const statusResponse = await fetch(ESEWA_STATUS_URL, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                params: {
-                    product_code: ESEWA_PRODUCT_CODE,
-                    total_amount: totalAmount,
-                    transaction_uuid: uuid
-                }
-            })
-            const statusData = statusResponse.data;
-
-            // If booking doesn't exist yet and payment is complete, create it
-            if (!booking && statusData.status === "COMPLETE" && bookingData) {
-                try {
-                    booking = await createBookingFromPaymentData(bookingData, bookingData.userId);
-                    booking.esewaTransactionUuid = uuid;
-                    booking.esewaRefId = statusData.ref_id || null;
-                    await booking.save();
-                    
-                    // Remove from temporary storage
-                    pendingBookingData.delete(uuid);
-                } catch (createError) {
-                    console.error("Error creating booking from status check:", createError);
-                    return res.status(500).json({
-                        success: false,
-                        message: "Payment completed but failed to create booking"
-                    });
-                }
-            }
-
-            // Update booking based on status (only if booking exists)
-            if (booking) {
-                if (statusData.status === "COMPLETE" && booking.paymentStatus !== "paid") {
-                    booking.paymentStatus = "paid";
-                    booking.bookingStatus = "confirmed";
-                    booking.esewaRefId = statusData.ref_id || null;
-                    booking.isPaymentDeferred = false;
-                    
-                    // Mark vehicle as unavailable
-                    // await Vehicle.findByIdAndUpdate(booking.vehicleId, { isAvailable: false });
-                    await booking.save();
-                } else if (statusData.status === "FULL_REFUND" || statusData.status === "PARTIAL_REFUND") {
-                    booking.paymentStatus = "refunded";
-                    await booking.save();
-                } else if (statusData.status === "CANCELED") {
-                    booking.bookingStatus = "cancelled";
-                    await booking.save();
-                } else if (statusData.status === "NOT_FOUND") {
-                    // Transaction expired or not found
-                    if (bookingData) {
-                        // Remove from temp storage if still pending
-                        pendingBookingData.delete(uuid);
-                    } else {
-                        booking.bookingStatus = "cancelled";
-                        await booking.save();
-                    }
-                }
-            } else if (statusData.status === "CANCELED" || statusData.status === "NOT_FOUND") {
-                // Payment cancelled/not found and no booking exists - clean up temp storage
-                if (bookingData) {
-                    pendingBookingData.delete(uuid);
-                }
-            }
-
-            res.json({
-                success: true,
-                message: "Payment status checked",
-                data: {
-                    status: statusData.status,
-                    refId: statusData.ref_id,
-                    booking: booking ? {
-                        id: booking._id,
-                        paymentStatus: booking.paymentStatus,
-                        bookingStatus: booking.bookingStatus
-                    } : null
-                }
-            });
-        } catch (apiError) {
-            console.error("Error checking eSewa status:", apiError);
-            
-            if (apiError.response) {
-                return res.status(apiError.response.status || 500).json({
-                    success: false,
-                    message: apiError.response.data?.error_message || "Failed to check payment status",
-                    error: apiError.response.data
-                });
-            }
-
-            res.status(500).json({
-                success: false,
-                message: "Failed to check payment status"
-            });
-        }
-    } catch (error) {
-        console.error("Error checking payment status:", error);
-        
-        res.status(500).json({
-            success: false,
-            message: error.message || "Failed to check payment status"
-        });
-    }
-};
-
-/**
- * Verify eSewa payment (for manual verification)
- */
-export const verifyEsewaPayment = async (req, res) => {
-    try {
-        const { transactionUuid, bookingId } = req.body;
-
-        if (!transactionUuid && !bookingId) {
-            return res.status(400).json({
-                success: false,
-                message: "Transaction UUID or Booking ID is required"
-            });
-        }
-
-        // This is essentially the same as status check, but with verification logic
-        return await checkEsewaPaymentStatus(req, res);
-    } catch (error) {
-        console.error("Error verifying eSewa payment:", error);
-        
-        res.status(500).json({
-            success: false,
-            message: error.message || "Failed to verify payment"
-        });
-    }
-};
-
