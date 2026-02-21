@@ -1,6 +1,7 @@
 import VendorApplication from "../models/vendorApplication.model.js";
 import Vehicle from "../models/vehicle.model.js";
 import Rental from "../models/rental.model.js";
+import Booking from "../models/booking.model.js";
 import User from "../models/user.model.js";
 import sendEmail from "../utils/emailTemplates.js";
 
@@ -488,31 +489,36 @@ export const getMyRevenue = async (req, res) => {
             });
         }
 
-        const rentals = await Rental.find({ 
-            vendorId: userId,
-            status: { $in: ["confirmed", "active", "completed"] },
+        // Get all vehicles owned by this vendor
+        const vendorVehicles = await Vehicle.find({ vendorId: userId }).select("_id");
+        const vehicleIds = vendorVehicles.map(v => v._id);
+
+        // Get all bookings for vendor's vehicles with paid status
+        const bookings = await Booking.find({ 
+            vehicleId: { $in: vehicleIds },
+            bookingStatus: { $in: ["confirmed", "active", "completed"] },
             paymentStatus: "paid"
         });
 
-        const totalRevenue = rentals.reduce((sum, rental) => sum + rental.totalPrice, 0);
-        const completedRentals = rentals.filter(r => r.status === "completed").length;
-        const activeRentals = rentals.filter(r => r.status === "active").length;
+        const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
+        const completedBookings = bookings.filter(b => b.bookingStatus === "completed").length;
+        const activeBookings = bookings.filter(b => b.bookingStatus === "active").length;
 
         // Calculate monthly revenue (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const monthlyRevenue = rentals
-            .filter(r => r.createdAt >= thirtyDaysAgo)
-            .reduce((sum, rental) => sum + rental.totalPrice, 0);
+        const monthlyRevenue = bookings
+            .filter(b => b.createdAt >= thirtyDaysAgo)
+            .reduce((sum, booking) => sum + booking.totalAmount, 0);
 
         return res.status(200).json({
             success: true,
             revenue: {
                 total: totalRevenue,
                 monthly: monthlyRevenue,
-                completedRentals,
-                activeRentals,
-                totalRentals: rentals.length
+                completedRentals: completedBookings,
+                activeRentals: activeBookings,
+                totalRentals: bookings.length
             }
         });
     } catch (error) {
