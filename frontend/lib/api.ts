@@ -319,6 +319,47 @@ export const cancelBooking = async (bookingId: string) => {
     return response.data;
 };
 
+export const uploadPostRentalImages = async (bookingId: string, formData: FormData) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/upload-post-rental-images`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+export const uploadPreRentalImages = async (bookingId: string, formData: FormData) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/upload-pre-rental-images`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+export const uploadUserPostRentalImages = async (bookingId: string, formData: FormData) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/upload-user-post-rental-images`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+export const uploadVendorPostRentalImages = async (bookingId: string, formData: FormData) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/upload-vendor-post-rental-images`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    return response.data;
+};
+
+export const compareBookingCondition = async (bookingId: string) => {
+    const response = await axiosInstance.post(`/bookings/${bookingId}/compare-condition`);
+    return response.data;
+};
+
 // Payment API - eSewa
 export const initiateEsewaPayment = async (data: PaymentInitiationData) => {
     const response = await axiosInstance.post("/payments/esewa/initiate", data);

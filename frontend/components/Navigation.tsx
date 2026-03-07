@@ -79,13 +79,13 @@ const Navbar = () => {
                             <span>Rent</span>
                             <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/rent') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
                         </Link>
-                        <Link
+                        {/* <Link
                             href="/sell"
                             className={`${isActive('/sell') ? 'text-primary' : ''} hover:text-primary px-3 py-4 rounded-md text-sm font-medium transition-colors relative block group`}
                         >
                             <span>Sell</span>
                             <span className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform ${isActive('/sell') ? 'scale-x-100' : 'scale-x-0'} group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
-                        </Link>
+                        </Link> */}
                     </div>
                     {/* Authentication Buttons */}
                     <div className="hidden md:flex items-center space-x-4">

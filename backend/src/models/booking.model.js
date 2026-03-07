@@ -67,6 +67,62 @@ const bookingSchema = new mongoose.Schema(
         isPaymentDeferred: {
             type: Boolean,
             default: false
+        },
+        // Pre-rental vehicle condition images uploaded by vendor
+        preRentalImages: {
+            type: [String], // Array of image URLs
+            default: []
+        },
+        preRentalImagesUploadedAt: {
+            type: Date,
+            default: null
+        },
+        preRentalConditionNotes: {
+            type: String,
+            default: ""
+        },
+        // Post-rental vehicle condition images from vendor
+        vendorPostRentalImages: {
+            type: [String], // Array of image URLs
+            default: []
+        },
+        vendorPostRentalImagesUploadedAt: {
+            type: Date,
+            default: null
+        },
+        vendorPostRentalConditionNotes: {
+            type: String,
+            default: ""
+        },
+        // Post-rental vehicle condition images from user
+        userPostRentalImages: {
+            type: [String], // Array of image URLs
+            default: []
+        },
+        userPostRentalImagesUploadedAt: {
+            type: Date,
+            default: null
+        },
+        userPostRentalConditionNotes: {
+            type: String,
+            default: ""
+        },
+        // AI-powered condition comparison (Gemini) between pre- and post-rental photos
+        conditionComparisonSummary: {
+            type: String,
+            default: ""
+        },
+        conditionComparisonJson: {
+            type: mongoose.Schema.Types.Mixed,
+            default: null
+        },
+        conditionComparisonModel: {
+            type: String,
+            default: ""
+        },
+        conditionComparisonUpdatedAt: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }

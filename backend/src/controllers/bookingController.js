@@ -1,6 +1,121 @@
 import Booking from "../models/booking.model.js";
 import Vehicle from "../models/vehicle.model.js";
 import User from "../models/user.model.js";
+import { GoogleGenAI } from "@google/genai";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+async function fetchImageAsBase64(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch image from ${url}: ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer).toString("base64");
+}
+
+async function compareConditionWithGemini(preImageUrls, postImageUrls) {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured on the server");
+    }
+
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+    // Limit number of images to keep payload reasonable
+    const preUrls = preImageUrls.slice(0, 4);
+    const postUrls = postImageUrls.slice(0, 4);
+
+    const preImagesBase64 = await Promise.all(preUrls.map(fetchImageAsBase64));
+    const postImagesBase64 = await Promise.all(postUrls.map(fetchImageAsBase64));
+
+    const prompt = `
+You are an expert vehicle inspector.
+You are given BEFORE and AFTER rental photos of the same vehicle.
+Carefully compare them and describe any new damage, scratches, dents, interior issues, or missing parts.
+
+Return your answer STRICTLY as JSON with this exact structure:
+{
+  "overallAssessment": string,
+  "damageSummary": [
+    {
+      "area": string,
+      "severity": "none" | "low" | "medium" | "high",
+      "description": string
+    }
+  ],
+  "recommendedActions": string,
+  "isSafeToRentAgain": boolean,
+  "notesForVendor": string
+}
+
+If there is no noticeable new damage, set "damageSummary" to an empty array and explain that in "overallAssessment".
+`;
+
+    const parts = [
+        { text: prompt },
+        { text: "BEFORE (pre-rental) photos:" },
+        ...preImagesBase64.map((data) => ({
+            inlineData: {
+                mimeType: "image/jpeg",
+                data
+            }
+        })),
+        { text: "AFTER (post-rental) photos:" },
+        ...postImagesBase64.map((data) => ({
+            inlineData: {
+                mimeType: "image/jpeg",
+                data
+            }
+        }))
+    ];
+
+    const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: parts,
+        config: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+            responseMimeType: "application/json"
+        }
+    });
+
+    const text = response.text || "";
+
+    let parsedJson = null;
+    try {
+        parsedJson = JSON.parse(text);
+    } catch {
+        // If model didn't return valid JSON, wrap raw text
+        parsedJson = {
+            overallAssessment: text || "Model did not return valid JSON.",
+            damageSummary: [],
+            recommendedActions: "",
+            isSafeToRentAgain: null,
+            notesForVendor: ""
+        };
+    }
+
+    if (
+        parsedJson &&
+        typeof parsedJson.overallAssessment === "string"
+    ) {
+        const inner = parsedJson.overallAssessment.trim();
+        if (inner.startsWith("{") && inner.includes("overallAssessment")) {
+            try {
+                const innerObj = JSON.parse(inner);
+                parsedJson = { ...parsedJson, ...innerObj };
+            } catch {
+                // ignore if inner JSON is invalid
+            }
+        }
+    }
+
+    return {
+        rawText: text,
+        json: parsedJson,
+        model: response.modelVersion || "gemini-3-flash-preview"
+    };
+}
 
 export const createBooking = async (req, res) => {
     try {
@@ -376,6 +491,466 @@ export const checkAvailability = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message || "Failed to check availability"
+        });
+    }
+};
+
+export const compareBookingCondition = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const userId = req.userId;
+
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        const booking = await Booking.findById(bookingId)
+            .populate("vehicleId", "name vendorId")
+            .populate("userId", "name email");
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Only the vendor who owns the vehicle can perform the comparison
+        if (booking.vehicleId.vendorId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only compare condition for your own vehicles"
+            });
+        }
+
+        if (!booking.preRentalImages || booking.preRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Pre-rental images are required for comparison"
+            });
+        }
+
+        if (!booking.vendorPostRentalImages || booking.vendorPostRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor post-rental images are required for comparison"
+            });
+        }
+
+        const result = await compareConditionWithGemini(
+            booking.preRentalImages,
+            booking.vendorPostRentalImages
+        );
+
+        booking.conditionComparisonSummary = result.json?.overallAssessment || "";
+        booking.conditionComparisonJson = result.json || null;
+        booking.conditionComparisonModel = result.model || "gemini-1.5-pro-latest";
+        booking.conditionComparisonUpdatedAt = new Date();
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Condition comparison completed",
+            data: {
+                bookingId: booking._id,
+                vehicleName: booking.vehicleId.name,
+                customerName: booking.userId.name,
+                comparison: booking.conditionComparisonJson,
+                summary: booking.conditionComparisonSummary,
+                model: booking.conditionComparisonModel,
+                updatedAt: booking.conditionComparisonUpdatedAt
+            }
+        });
+    } catch (error) {
+        console.error("Compare booking condition error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to compare vehicle condition"
+        });
+    }
+}
+
+// Upload pre-rental vehicle condition images by vendor
+export const uploadPreRentalImages = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { conditionNotes } = req.body;
+        const userId = req.userId;
+
+        // Get uploaded images from cloudinary (set up by multer middleware)
+        const preRentalImages = req.body.preRentalImages || [];
+
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        if (preRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one pre-rental image is required"
+            });
+        }
+
+        // Find the booking and verify it's the vendor's vehicle
+        const booking = await Booking.findById(bookingId)
+            .populate('vehicleId', 'name vendorId')
+            .populate('userId', 'name email');
+        
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Check if user is the vendor who owns the vehicle
+        if (booking.vehicleId.vendorId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only upload images for your own vehicles"
+            });
+        }
+
+        // Check if booking is confirmed (ready for rental)
+        if (booking.bookingStatus !== "confirmed") {
+            return res.status(400).json({
+                success: false,
+                message: "You can only upload pre-rental images for confirmed bookings"
+            });
+        }
+
+        // Check if images haven't been uploaded already
+        if (booking.preRentalImages && booking.preRentalImages.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Pre-rental images have already been uploaded for this booking"
+            });
+        }
+
+        // Update booking with pre-rental images
+        booking.preRentalImages = preRentalImages;
+        booking.preRentalImagesUploadedAt = new Date();
+        if (conditionNotes) {
+            booking.preRentalConditionNotes = conditionNotes.trim();
+        }
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Pre-rental images uploaded successfully",
+            data: {
+                bookingId: booking._id,
+                vehicleName: booking.vehicleId.name,
+                customerName: booking.userId.name,
+                imagesCount: preRentalImages.length,
+                uploadedAt: booking.preRentalImagesUploadedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Upload pre-rental images error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to upload pre-rental images"
+        });
+    }
+};
+
+// Upload post-rental vehicle condition images by user
+export const uploadUserPostRentalImages = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { conditionNotes } = req.body;
+        const userId = req.userId;
+
+        // Get uploaded images from cloudinary (set up by multer middleware)
+        const userPostRentalImages = req.body.userPostRentalImages || [];
+
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        if (userPostRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one post-rental image is required"
+            });
+        }
+
+        // Find the booking and verify ownership
+        const booking = await Booking.findById(bookingId).populate('vehicleId', 'name');
+        
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Check if user owns this booking
+        if (booking.userId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only upload images for your own bookings"
+            });
+        }
+
+        // Check if booking is completed
+        if (booking.bookingStatus !== "completed") {
+            return res.status(400).json({
+                success: false,
+                message: "You can only upload post-rental images for completed bookings"
+            });
+        }
+
+        // Check if images haven't been uploaded already
+        if (booking.userPostRentalImages && booking.userPostRentalImages.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Post-rental images have already been uploaded for this booking"
+            });
+        }
+
+        // Check if rental period has ended
+        const now = new Date();
+        if (new Date(booking.endDate) > now) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot upload post-rental images before the rental period ends"
+            });
+        }
+
+        // Update booking with user post-rental images
+        booking.userPostRentalImages = userPostRentalImages;
+        booking.userPostRentalImagesUploadedAt = new Date();
+        if (conditionNotes) {
+            booking.userPostRentalConditionNotes = conditionNotes.trim();
+        }
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Post-rental images uploaded successfully",
+            data: {
+                bookingId: booking._id,
+                vehicleName: booking.vehicleId.name,
+                imagesCount: userPostRentalImages.length,
+                uploadedAt: booking.userPostRentalImagesUploadedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Upload user post-rental images error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to upload post-rental images"
+        });
+    }
+};
+
+// Upload post-rental vehicle condition images by vendor
+export const uploadVendorPostRentalImages = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { conditionNotes } = req.body;
+        const userId = req.userId;
+
+        // Get uploaded images from cloudinary (set up by multer middleware)
+        const vendorPostRentalImages = req.body.vendorPostRentalImages || [];
+
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        if (vendorPostRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one post-rental image is required"
+            });
+        }
+
+        // Find the booking and verify it's the vendor's vehicle
+        const booking = await Booking.findById(bookingId)
+            .populate('vehicleId', 'name vendorId')
+            .populate('userId', 'name email');
+        
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Check if user is the vendor who owns the vehicle
+        if (booking.vehicleId.vendorId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only upload images for your own vehicles"
+            });
+        }
+
+        // Check if booking is not cancelled
+        if (booking.bookingStatus === "cancelled") {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot upload post-rental images for cancelled bookings"
+            });
+        }
+
+        // Check if images haven't been uploaded already
+        if (booking.vendorPostRentalImages && booking.vendorPostRentalImages.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Vendor post-rental images have already been uploaded for this booking"
+            });
+        }
+
+        // Check if rental period has ended
+        const now = new Date();
+        if (new Date(booking.endDate) > now) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot upload post-rental images before the rental period ends"
+            });
+        }
+
+        // Update booking with vendor post-rental images
+        booking.vendorPostRentalImages = vendorPostRentalImages;
+        booking.vendorPostRentalImagesUploadedAt = new Date();
+        if (conditionNotes) {
+            booking.vendorPostRentalConditionNotes = conditionNotes.trim();
+        }
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Vendor post-rental images uploaded successfully",
+            data: {
+                bookingId: booking._id,
+                vehicleName: booking.vehicleId.name,
+                customerName: booking.userId.name,
+                imagesCount: vendorPostRentalImages.length,
+                uploadedAt: booking.vendorPostRentalImagesUploadedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Upload vendor post-rental images error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to upload vendor post-rental images"
+        });
+    }
+};
+
+// Upload post-rental vehicle condition images (legacy endpoint for backward compatibility)
+export const uploadPostRentalImages = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { conditionNotes } = req.body;
+        const userId = req.userId;
+
+        // Get uploaded images from cloudinary (set up by multer middleware)
+        const postRentalImages = req.body.postRentalImages || [];
+
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        if (postRentalImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one post-rental image is required"
+            });
+        }
+
+        // Find the booking and verify ownership
+        const booking = await Booking.findById(bookingId).populate('vehicleId', 'name');
+        
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Check if user owns this booking
+        if (booking.userId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only upload images for your own bookings"
+            });
+        }
+
+        // Check if booking is completed
+        if (booking.bookingStatus !== "completed") {
+            return res.status(400).json({
+                success: false,
+                message: "You can only upload post-rental images for completed bookings"
+            });
+        }
+
+        // Check if images haven't been uploaded already
+        if (booking.postRentalImages && booking.postRentalImages.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Post-rental images have already been uploaded for this booking"
+            });
+        }
+
+        // Check if rental period has ended
+        const now = new Date();
+        if (new Date(booking.endDate) > now) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot upload post-rental images before the rental period ends"
+            });
+        }
+
+        // Update booking with post-rental images
+        booking.postRentalImages = postRentalImages;
+        booking.postRentalImagesUploadedAt = new Date();
+        if (conditionNotes) {
+            booking.postRentalConditionNotes = conditionNotes.trim();
+        }
+
+        await booking.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Post-rental images uploaded successfully",
+            data: {
+                bookingId: booking._id,
+                vehicleName: booking.vehicleId.name,
+                imagesCount: postRentalImages.length,
+                uploadedAt: booking.postRentalImagesUploadedAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Upload post-rental images error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to upload post-rental images"
         });
     }
 };

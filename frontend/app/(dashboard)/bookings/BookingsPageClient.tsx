@@ -30,12 +30,14 @@ import {
     MapPin,
     Eye,
     Trash2,
+    Camera,
 } from "lucide-react";
 import { getUserBookings, cancelBooking } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Link from "next/link";
 import Navbar from "@/components/Navigation";
+import { PostRentalImageUpload } from "@/components/booking/PostRentalImageUpload";
 
 interface Booking {
     _id: string;
@@ -43,6 +45,7 @@ interface Booking {
         _id: string;
         name: string;
         category?: string;
+        type: string;
         mainImage?: string;
         pricePerDay: number;
     };
@@ -58,6 +61,10 @@ interface Booking {
         city: string;
     };
     createdAt: string;
+    userPostRentalImages?: string[];
+    userPostRentalImagesUploadedAt?: string;
+    postRentalImages?: string[];
+    postRentalImagesUploadedAt?: string;
 }
 
 interface BookingsPageClientProps {
@@ -73,6 +80,8 @@ export default function BookingsPageClient({ initialBookings = [] }: BookingsPag
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [showPostRentalUpload, setShowPostRentalUpload] = useState(false);
+    const [selectedBookingForUpload, setSelectedBookingForUpload] = useState<Booking | null>(null);
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -223,6 +232,35 @@ export default function BookingsPageClient({ initialBookings = [] }: BookingsPag
             booking.bookingStatus !== "completed" &&
             new Date(booking.startDate) > new Date()
         );
+    };
+
+    const canUploadPostRentalImages = (booking: Booking) => {
+        return (
+            booking.bookingStatus === "completed" &&
+            new Date() > new Date(booking.endDate) &&
+            (!booking.userPostRentalImages || booking.userPostRentalImages.length === 0) &&
+            (!booking.postRentalImages || booking.postRentalImages.length === 0)
+        );
+    };
+
+    const handlePostRentalUploadSuccess = () => {
+        // Refetch bookings to update the UI
+        setShowPostRentalUpload(false);
+        setSelectedBookingForUpload(null);
+        
+        // Refetch data
+        const refetch = async () => {
+            try {
+                const response = await getUserBookings();
+                if (response?.success && response?.data) {
+                    setBookings(response.data);
+                    setFilteredBookings(response.data);
+                }
+            } catch (error) {
+                console.error("Failed to refetch bookings:", error);
+            }
+        };
+        refetch();
     };
 
     const currentDate = new Date();
@@ -424,6 +462,27 @@ export default function BookingsPageClient({ initialBookings = [] }: BookingsPag
                                                                     Cancel
                                                                 </Button>
                                                             )}
+                                                            {canUploadPostRentalImages(booking) && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                    onClick={() => {
+                                                                        setSelectedBookingForUpload(booking);
+                                                                        setShowPostRentalUpload(true);
+                                                                    }}
+                                                                >
+                                                                    <Camera className="h-3 w-3" />
+                                                                    Upload Images
+                                                                </Button>
+                                                            )}
+                                                            {((booking.userPostRentalImages && booking.userPostRentalImages.length > 0) || 
+                                                             (booking.postRentalImages && booking.postRentalImages.length > 0)) && (
+                                                                <Badge variant="secondary" className="gap-1 text-xs">
+                                                                    <Camera className="h-3 w-3" />
+                                                                    Images Uploaded
+                                                                </Badge>
+                                                            )}
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
@@ -473,6 +532,16 @@ export default function BookingsPageClient({ initialBookings = [] }: BookingsPag
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Post-rental Image Upload Dialog */}
+            {selectedBookingForUpload && showPostRentalUpload && (
+                <PostRentalImageUpload
+                    booking={selectedBookingForUpload}
+                    open={showPostRentalUpload}
+                    onOpenChange={setShowPostRentalUpload}
+                    onSuccess={handlePostRentalUploadSuccess}
+                />
+            )}
         </div>
         </div>
     );

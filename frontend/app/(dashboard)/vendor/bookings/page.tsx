@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
     Table,
     TableBody,
@@ -19,10 +20,37 @@ import {
     Calendar,
     DollarSign,
     MapPin,
+    Camera,
+    Upload,
+    Sparkles,
+    Eye,
 } from "lucide-react";
-import { getVendorBookings } from "@/lib/api";
+import { getVendorBookings, compareBookingCondition } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { PreRentalImageUpload } from "@/components/booking/PreRentalImageUpload";
+import { VendorPostRentalImageUpload } from "@/components/booking/VendorPostRentalImageUpload";
+
+interface DamageItem {
+    area: string;
+    severity: "none" | "low" | "medium" | "high" | string;
+    description: string;
+}
+
+interface ConditionComparison {
+    overallAssessment: string;
+    damageSummary?: DamageItem[];
+    recommendedActions?: string;
+    isSafeToRentAgain?: boolean | null;
+    notesForVendor?: string;
+}
 
 interface Booking {
     _id: string;
@@ -38,6 +66,7 @@ interface Booking {
         category?: string;
         mainImage?: string;
         pricePerDay: number;
+        type?: string;
     };
     startDate: string;
     endDate: string;
@@ -51,6 +80,13 @@ interface Booking {
         city: string;
     };
     createdAt: string;
+    preRentalImages?: string[];
+    preRentalImagesUploadedAt?: string;
+    vendorPostRentalImages?: string[];
+    vendorPostRentalImagesUploadedAt?: string;
+    conditionComparisonSummary?: string;
+    conditionComparisonJson?: ConditionComparison;
+    conditionComparisonUpdatedAt?: string;
 }
 
 export default function VendorBookingsPage() {
@@ -59,6 +95,36 @@ export default function VendorBookingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
+    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [uploadType, setUploadType] = useState<"pre" | "post" | null>(null);
+    const [isComparing, setIsComparing] = useState(false);
+    const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false);
+    const [comparisonResult, setComparisonResult] = useState<ConditionComparison | null>(null);
+    const [comparisonError, setComparisonError] = useState<string | null>(null);
+
+    const getOverallAssessmentText = (result: ConditionComparison | null) => {
+        if (!result || !result.overallAssessment) {
+            return "";
+        }
+
+        const value = result.overallAssessment;
+        if (typeof value !== "string") {
+            return String(value);
+        }
+
+        const trimmed = value.trim();
+
+        // Handle cases where the model double-encodes JSON into the overallAssessment field
+        // e.g. "{ \"overallAssessment\": \"The subject has ...\", ... }"
+        if (trimmed.startsWith("{") && trimmed.includes("\"overallAssessment\"")) {
+            const match = trimmed.match(/"overallAssessment"\s*:\s*"(.*)"/);
+            if (match && match[1]) {
+                return match[1].replace(/\\"/g, "\"");
+            }
+        }
+
+        return value;
+    };
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -148,6 +214,120 @@ export default function VendorBookingsPage() {
         return format(new Date(dateString), "MMM dd, yyyy HH:mm");
     };
 
+    const canUploadPreRental = (booking: Booking) => {
+        return (
+            booking.bookingStatus === "confirmed" &&
+            (!booking.preRentalImages || booking.preRentalImages.length === 0)
+        );
+    };
+
+    const canUploadPostRental = (booking: Booking) => {
+        return (
+            booking.bookingStatus !== "cancelled" &&
+            new Date() > new Date(booking.endDate) &&
+            (!booking.vendorPostRentalImages || booking.vendorPostRentalImages.length === 0)
+        );
+    };
+
+    const canCompareCondition = (booking: Booking) => {
+        return (
+            !!booking.preRentalImages?.length &&
+            !!booking.vendorPostRentalImages?.length
+        );
+    };
+
+    const handleUploadSuccess = () => {
+        setSelectedBooking(null);
+        setUploadType(null);
+        const refetch = async () => {
+            try {
+                const response = await getVendorBookings();
+                if (response?.success && response?.data) {
+                    setBookings(response.data);
+                    setFilteredBookings(response.data);
+                }
+            } catch (e) {
+                console.error("Failed to refetch bookings:", e);
+            }
+        };
+        refetch();
+    };
+
+    const handleCompareClick = async (booking: Booking) => {
+        try {
+            setSelectedBooking(booking);
+            setIsComparing(true);
+            setComparisonResult(null);
+            setComparisonError(null);
+            setIsComparisonDialogOpen(true);
+
+            const response = await compareBookingCondition(booking._id);
+            if (response?.success && response?.data) {
+                const summary =
+                    response.data.comparison?.overallAssessment ||
+                    response.data.summary ||
+                    "Comparison completed.";
+                const data = response.data.comparison as ConditionComparison;
+                setComparisonResult(data);
+                setBookings((prev) =>
+                    prev.map((b) =>
+                        b._id === booking._id
+                            ? {
+                                ...b,
+                                conditionComparisonSummary: summary,
+                                conditionComparisonJson: data,
+                                conditionComparisonUpdatedAt:
+                                    response.data.updatedAt,
+                            }
+                            : b
+                    )
+                );
+                setFilteredBookings((prev) =>
+                    prev.map((b) =>
+                        b._id === booking._id
+                            ? {
+                                ...b,
+                                conditionComparisonSummary: summary,
+                                conditionComparisonJson: data,
+                                conditionComparisonUpdatedAt:
+                                    response.data.updatedAt,
+                            }
+                            : b
+                    )
+                );
+            } else {
+                setComparisonError(
+                    response?.message || "Failed to compare condition."
+                );
+            }
+        } catch (error: unknown) {
+            const msg =
+                error && typeof error === "object" && "response" in error
+                    ? (error as { response?: { data?: { message?: string } } })
+                        .response?.data?.message
+                    : error instanceof Error
+                        ? error.message
+                        : "Failed to compare condition.";
+            setComparisonError(String(msg));
+        } finally {
+            setIsComparing(false);
+        }
+    };
+
+    const handleViewComparisonClick = (booking: Booking) => {
+        setSelectedBooking(booking);
+        const existing = booking.conditionComparisonJson;
+        if (existing) {
+            setComparisonResult(existing);
+            setComparisonError(null);
+        } else {
+            setComparisonResult(null);
+            setComparisonError("No comparison data available.");
+        }
+        setIsComparing(false);
+        setIsComparisonDialogOpen(true);
+    };
+
     const statusCounts = {
         all: bookings.length,
         pending: bookings.filter((b) => b.bookingStatus === "pending").length,
@@ -206,8 +386,8 @@ export default function VendorBookingsPage() {
                                     {searchQuery
                                         ? "No bookings found matching your search"
                                         : activeTab === "all"
-                                        ? "No bookings found"
-                                        : `No ${activeTab} bookings found`}
+                                            ? "No bookings found"
+                                            : `No ${activeTab} bookings found`}
                                 </div>
                             ) : (
                                 <div className="rounded-md border">
@@ -223,6 +403,7 @@ export default function VendorBookingsPage() {
                                                 <TableHead>Booking Status</TableHead>
                                                 <TableHead>Payment Status</TableHead>
                                                 <TableHead>Created</TableHead>
+                                                <TableHead>Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -309,6 +490,75 @@ export default function VendorBookingsPage() {
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {formatDateTime(booking.createdAt)}
                                                     </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {canUploadPreRental(booking) ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setSelectedBooking(booking);
+                                                                        setUploadType("pre");
+                                                                    }}
+                                                                >
+                                                                    <Upload className="h-3 w-3 mr-1" />
+                                                                    Before
+                                                                </Button>
+                                                            ) : booking.preRentalImages?.length ? (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    Before ✓
+                                                                </Badge>
+                                                            ) : null}
+                                                            {canUploadPostRental(booking) ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setSelectedBooking(booking);
+                                                                        setUploadType("post");
+                                                                    }}
+                                                                >
+                                                                    <Camera className="h-3 w-3 mr-1" />
+                                                                    After
+                                                                </Button>
+                                                            ) : booking.vendorPostRentalImages?.length ? (
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    After ✓
+                                                                </Badge>
+                                                            ) : null}
+                                                            {canCompareCondition(booking) && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() => handleCompareClick(booking)}
+                                                                    disabled={
+                                                                        isComparing &&
+                                                                        selectedBooking?._id === booking._id
+                                                                    }
+                                                                >
+                                                                    <Sparkles className="h-3 w-3 mr-1" />
+                                                                    {isComparing &&
+                                                                        selectedBooking?._id === booking._id
+                                                                        ? "Comparing..."
+                                                                        : booking.conditionComparisonJson
+                                                                            ? "Compare again"
+                                                                            : "Compare"}
+                                                                </Button>
+                                                            )}
+                                                            {booking.conditionComparisonJson && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() =>
+                                                                        handleViewComparisonClick(booking)
+                                                                    }
+                                                                >
+                                                                    <Eye className="h-3 w-3 mr-1" />
+                                                                    View comparison
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -319,6 +569,159 @@ export default function VendorBookingsPage() {
                     </Tabs>
                 </CardContent>
             </Card>
+
+            {selectedBooking && uploadType === "pre" && (
+                <PreRentalImageUpload
+                    booking={selectedBooking}
+                    open={true}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSelectedBooking(null);
+                            setUploadType(null);
+                        }
+                    }}
+                    onSuccess={handleUploadSuccess}
+                />
+            )}
+
+            {selectedBooking && uploadType === "post" && (
+                <VendorPostRentalImageUpload
+                    booking={selectedBooking}
+                    open={true}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSelectedBooking(null);
+                            setUploadType(null);
+                        }
+                    }}
+                    onSuccess={handleUploadSuccess}
+                />
+            )}
+
+            <Dialog
+                open={isComparisonDialogOpen}
+                onOpenChange={setIsComparisonDialogOpen}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedBooking
+                                ? `Condition comparison — ${selectedBooking.vehicleId.name}`
+                                : "Condition comparison"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            AI comparison of before vs after rental photos (Gemini).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 max-h-[400px] overflow-auto rounded-md bg-muted p-4 space-y-4 text-sm">
+                        {isComparing && !comparisonResult && !comparisonError && (
+                            <p>Comparing photos…</p>
+                        )}
+
+                        {!isComparing && comparisonError && (
+                            <p className="text-red-600 dark:text-red-400">
+                                {comparisonError}
+                            </p>
+                        )}
+
+                        {!isComparing && comparisonResult && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                        <h4 className="font-semibold">
+                                            Overall assessment
+                                        </h4>
+                                        <p className="mt-1 text-muted-foreground whitespace-pre-line">
+                                            {getOverallAssessmentText(comparisonResult)}
+                                        </p>
+                                    </div>
+                                    {typeof comparisonResult.isSafeToRentAgain === "boolean" && (
+                                        <Badge
+                                            variant={
+                                                comparisonResult.isSafeToRentAgain
+                                                    ? "default"
+                                                    : "destructive"
+                                            }
+                                        >
+                                            {comparisonResult.isSafeToRentAgain
+                                                ? "Safe to rent again"
+                                                : "Not safe to rent"}
+                                        </Badge>
+                                    )}
+                                </div>
+
+                                {comparisonResult.damageSummary &&
+                                    comparisonResult.damageSummary.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">
+                                                Detected damage
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {comparisonResult.damageSummary.map(
+                                                    (item, index) => (
+                                                        <div
+                                                            key={`${item.area}-${index}`}
+                                                            className="rounded-md border bg-background p-3"
+                                                        >
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <span className="font-medium">
+                                                                    {item.area}
+                                                                </span>
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={
+                                                                        item.severity === "high"
+                                                                            ? "border-red-500 text-red-600"
+                                                                            : item.severity === "medium"
+                                                                                ? "border-orange-500 text-orange-600"
+                                                                                : item.severity === "low"
+                                                                                    ? "border-yellow-500 text-yellow-700"
+                                                                                    : "border-gray-400 text-gray-600"
+                                                                    }
+                                                                >
+                                                                    {item.severity}
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="text-muted-foreground text-sm">
+                                                                {item.description}
+                                                            </p>
+                                                        </div>
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                {comparisonResult.recommendedActions && (
+                                    <div>
+                                        <h4 className="font-semibold mb-1">
+                                            Recommended actions
+                                        </h4>
+                                        <p className="text-muted-foreground whitespace-pre-line">
+                                            {comparisonResult.recommendedActions}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {comparisonResult.notesForVendor && (
+                                    <div>
+                                        <h4 className="font-semibold mb-1">
+                                            Notes for vendor
+                                        </h4>
+                                        <p className="text-muted-foreground whitespace-pre-line">
+                                            {comparisonResult.notesForVendor}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {!isComparing && !comparisonResult && !comparisonError && (
+                            <p>No comparison data. Try again later.</p>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

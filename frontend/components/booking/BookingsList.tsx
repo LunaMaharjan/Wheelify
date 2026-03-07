@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Calendar, MapPin, DollarSign, AlertCircle, Trash2, Eye } from "lucide-react";
+import { Calendar, MapPin, DollarSign, AlertCircle, Trash2, Eye, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { PostRentalImageUpload } from "./PostRentalImageUpload";
 import { getUserBookings, cancelBooking } from "@/lib/api";
 
 interface Booking {
@@ -31,6 +32,10 @@ interface Booking {
         city: string;
     };
     createdAt: string;
+    postRentalImages?: string[];
+    postRentalImagesUploadedAt?: string;
+    userPostRentalImages?: string[];
+    userPostRentalImagesUploadedAt?: string;
 }
 
 interface BookingsListProps {
@@ -48,6 +53,8 @@ const BookingsList: React.FC<BookingsListProps> = ({ showHeader = true }) => {
         id: string;
         name: string;
     } | null>(null);
+    const [showPostRentalUpload, setShowPostRentalUpload] = useState(false);
+    const [selectedBookingForUpload, setSelectedBookingForUpload] = useState<Booking | null>(null);
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -150,6 +157,34 @@ const BookingsList: React.FC<BookingsListProps> = ({ showHeader = true }) => {
             booking.bookingStatus !== "completed" &&
             new Date(booking.startDate) > new Date()
         );
+    };
+
+    const canUploadPostRentalImages = (booking: Booking) => {
+        return (
+            booking.bookingStatus === "completed" &&
+            new Date() > new Date(booking.endDate) &&
+            (!booking.userPostRentalImages || booking.userPostRentalImages.length === 0) &&
+            (!booking.postRentalImages || booking.postRentalImages.length === 0)
+        );
+    };
+
+    const handlePostRentalUploadSuccess = () => {
+        // Refetch bookings to update the UI
+        setShowPostRentalUpload(false);
+        setSelectedBookingForUpload(null);
+        
+        // Refetch data
+        const refetch = async () => {
+            try {
+                const response = await getUserBookings();
+                if (response.success) {
+                    setBookings(response.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to refetch bookings:", error);
+            }
+        };
+        refetch();
     };
 
     const filteredBookings =
@@ -343,6 +378,28 @@ const BookingsList: React.FC<BookingsListProps> = ({ showHeader = true }) => {
                                             {cancellingId === booking._id ? "Cancelling..." : "Cancel"}
                                         </Button>
                                     )}
+
+                                    {canUploadPostRentalImages(booking) && (
+                                        <Button
+                                            variant="outline"
+                                            className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                            onClick={() => {
+                                                setSelectedBookingForUpload(booking);
+                                                setShowPostRentalUpload(true);
+                                            }}
+                                        >
+                                            <Camera className="w-4 h-4" />
+                                            Upload Condition Images
+                                        </Button>
+                                    )}
+
+                                    {(booking.userPostRentalImages && booking.userPostRentalImages.length > 0) || 
+                                     (booking.postRentalImages && booking.postRentalImages.length > 0) ? (
+                                        <Badge variant="secondary" className="gap-1">
+                                            <Camera className="w-3 h-3" />
+                                            Images Uploaded
+                                        </Badge>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -380,6 +437,16 @@ const BookingsList: React.FC<BookingsListProps> = ({ showHeader = true }) => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Post-rental Image Upload Dialog */}
+            {selectedBookingForUpload && showPostRentalUpload && (
+                <PostRentalImageUpload
+                    booking={selectedBookingForUpload}
+                    open={showPostRentalUpload}
+                    onOpenChange={setShowPostRentalUpload}
+                    onSuccess={handlePostRentalUploadSuccess}
+                />
+            )}
         </div>
     );
 };
