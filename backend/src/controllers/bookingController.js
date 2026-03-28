@@ -14,6 +14,209 @@ async function fetchImageAsBase64(url) {
     return Buffer.from(arrayBuffer).toString("base64");
 }
 
+const EMPTY_CONDITION_COMPARISON = {
+    overallAssessment: "",
+    damageSummary: [],
+    recommendedActions: "",
+    isSafeToRentAgain: null,
+    notesForVendor: ""
+};
+
+function stripJsonCodeFences(text) {
+    let t = String(text || "").trim();
+    if (t.startsWith("```")) {
+        t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/s, "");
+    }
+    return t.trim();
+}
+
+/** Decode JSON string content after opening `"` (handles truncation before closing quote). */
+function readJsonStringContentAfterOpenQuote(src) {
+    let i = 0;
+    let out = "";
+    while (i < src.length) {
+        const c = src[i];
+        if (c === "\\" && i + 1 < src.length) {
+            const n = src[i + 1];
+            if (n === '"') {
+                out += '"';
+                i += 2;
+                continue;
+            }
+            if (n === "\\") {
+                out += "\\";
+                i += 2;
+                continue;
+            }
+            if (n === "n") {
+                out += "\n";
+                i += 2;
+                continue;
+            }
+            if (n === "r") {
+                out += "\r";
+                i += 2;
+                continue;
+            }
+            if (n === "t") {
+                out += "\t";
+                i += 2;
+                continue;
+            }
+            if (
+                n === "u" &&
+                i + 5 < src.length &&
+                /^[0-9a-fA-F]{4}$/.test(src.slice(i + 2, i + 6))
+            ) {
+                out += String.fromCharCode(
+                    Number.parseInt(src.slice(i + 2, i + 6), 16)
+                );
+                i += 6;
+                continue;
+            }
+            out += n;
+            i += 2;
+            continue;
+        }
+        if (c === '"') {
+            return out;
+        }
+        out += c;
+        i++;
+    }
+    return out;
+}
+
+/** Try to read "overallAssessment" when the payload is truncated or invalid JSON. */
+function salvageOverallAssessmentFromPartialJson(text) {
+    const keyIdx = text.indexOf('"overallAssessment"');
+    if (keyIdx === -1) {
+        return null;
+    }
+    const afterKey = text.slice(keyIdx + '"overallAssessment"'.length);
+    const colon = afterKey.indexOf(":");
+    if (colon === -1) {
+        return null;
+    }
+    let rest = afterKey.slice(colon + 1).trim();
+    if (!rest.startsWith('"')) {
+        return null;
+    }
+    return readJsonStringContentAfterOpenQuote(rest.slice(1));
+}
+
+/**
+ * Parse Gemini JSON output into a flat { overallAssessment, damageSummary, ... } object.
+ * Handles code fences, truncated output, and JSON embedded in overallAssessment.
+ */
+function parseConditionComparisonResponse(rawText) {
+    const text = stripJsonCodeFences(rawText || "");
+    if (!text) {
+        return {
+            ...EMPTY_CONDITION_COMPARISON,
+            overallAssessment: "Empty model response.",
+            notesForVendor: "The model returned no text."
+        };
+    }
+
+    let parsed = null;
+    try {
+        parsed = JSON.parse(text);
+    } catch {
+        const start = text.indexOf("{");
+        const end = text.lastIndexOf("}");
+        if (start !== -1 && end > start) {
+            try {
+                parsed = JSON.parse(text.slice(start, end + 1));
+            } catch {
+                parsed = null;
+            }
+        }
+    }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        const salvaged = salvageOverallAssessmentFromPartialJson(text);
+        return {
+            ...EMPTY_CONDITION_COMPARISON,
+            overallAssessment:
+                salvaged ||
+                text.slice(0, 12000) ||
+                "Could not parse model response as JSON.",
+            notesForVendor:
+                "Response was not valid JSON (often truncated). Try Compare again or contact support.",
+            recommendedActions: ""
+        };
+    }
+
+    return normalizeConditionComparisonShape(parsed);
+}
+
+function normalizeConditionComparisonShape(input) {
+    let o = { ...EMPTY_CONDITION_COMPARISON, ...input };
+
+    for (let i = 0; i < 6; i++) {
+        const oa = o.overallAssessment;
+        if (typeof oa !== "string") {
+            if (oa != null) o.overallAssessment = String(oa);
+            break;
+        }
+        const trimmed = oa.trim();
+        if (!trimmed.startsWith("{")) {
+            break;
+        }
+        try {
+            const inner = JSON.parse(trimmed);
+            if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+                o = {
+                    ...o,
+                    ...inner,
+                    damageSummary: Array.isArray(inner.damageSummary)
+                        ? inner.damageSummary
+                        : Array.isArray(o.damageSummary)
+                          ? o.damageSummary
+                          : [],
+                    overallAssessment:
+                        typeof inner.overallAssessment === "string"
+                            ? inner.overallAssessment
+                            : o.overallAssessment
+                };
+                continue;
+            }
+        } catch {
+            const salvaged = salvageOverallAssessmentFromPartialJson(trimmed);
+            if (salvaged) {
+                o.overallAssessment = salvaged;
+            }
+            break;
+        }
+        break;
+    }
+
+    if (!Array.isArray(o.damageSummary)) {
+        o.damageSummary = [];
+    }
+    if (typeof o.overallAssessment !== "string") {
+        o.overallAssessment =
+            o.overallAssessment != null ? String(o.overallAssessment) : "";
+    }
+    if (typeof o.recommendedActions !== "string") {
+        o.recommendedActions =
+            o.recommendedActions != null ? String(o.recommendedActions) : "";
+    }
+    if (typeof o.notesForVendor !== "string") {
+        o.notesForVendor =
+            o.notesForVendor != null ? String(o.notesForVendor) : "";
+    }
+    if (
+        o.isSafeToRentAgain !== null &&
+        typeof o.isSafeToRentAgain !== "boolean"
+    ) {
+        o.isSafeToRentAgain = null;
+    }
+
+    return o;
+}
+
 async function compareConditionWithGemini(preImageUrls, postImageUrls) {
     if (!GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not configured on the server");
@@ -74,41 +277,13 @@ If there is no noticeable new damage, set "damageSummary" to an empty array and 
         contents: parts,
         config: {
             temperature: 0.2,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 8192,
             responseMimeType: "application/json"
         }
     });
 
     const text = response.text || "";
-
-    let parsedJson = null;
-    try {
-        parsedJson = JSON.parse(text);
-    } catch {
-        // If model didn't return valid JSON, wrap raw text
-        parsedJson = {
-            overallAssessment: text || "Model did not return valid JSON.",
-            damageSummary: [],
-            recommendedActions: "",
-            isSafeToRentAgain: null,
-            notesForVendor: ""
-        };
-    }
-
-    if (
-        parsedJson &&
-        typeof parsedJson.overallAssessment === "string"
-    ) {
-        const inner = parsedJson.overallAssessment.trim();
-        if (inner.startsWith("{") && inner.includes("overallAssessment")) {
-            try {
-                const innerObj = JSON.parse(inner);
-                parsedJson = { ...parsedJson, ...innerObj };
-            } catch {
-                // ignore if inner JSON is invalid
-            }
-        }
-    }
+    const parsedJson = parseConditionComparisonResponse(text);
 
     return {
         rawText: text,
@@ -547,7 +722,8 @@ export const compareBookingCondition = async (req, res) => {
 
         booking.conditionComparisonSummary = result.json?.overallAssessment || "";
         booking.conditionComparisonJson = result.json || null;
-        booking.conditionComparisonModel = result.model || "gemini-1.5-pro-latest";
+        booking.conditionComparisonModel =
+            result.model || "gemini-3-flash-preview";
         booking.conditionComparisonUpdatedAt = new Date();
 
         await booking.save();
@@ -558,7 +734,8 @@ export const compareBookingCondition = async (req, res) => {
             data: {
                 bookingId: booking._id,
                 vehicleName: booking.vehicleId.name,
-                customerName: booking.userId.name,
+                customerName:
+                    booking.userId.name || booking.userId.email || "",
                 comparison: booking.conditionComparisonJson,
                 summary: booking.conditionComparisonSummary,
                 model: booking.conditionComparisonModel,
