@@ -7,7 +7,9 @@ import {
     updateVehicle,
     getMyVehicles,
     getMyRentals,
-    getMyRevenue
+    getMyRevenue,
+    getVendorRevenueReport,
+    getMyRevenueReportCsv,
 } from "../controllers/vendorController.js";
 import { upload } from "../utils/cloudinary.js";
 
@@ -145,6 +147,8 @@ router.get("/rentals", getMyRentals);
 
 // Get vendor's revenue stats
 router.get("/revenue", getMyRevenue);
+router.get("/revenue-report/csv", getMyRevenueReportCsv);
+router.get("/revenue-report", getVendorRevenueReport);
 
 export default router;
 

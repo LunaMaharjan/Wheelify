@@ -214,8 +214,10 @@ export const updateVehicle = async (vehicleId: string, formData: FormData) => {
 };
 
 // Admin API - Vehicles
-export const getAllVehicles = async (approvalStatus?: string) => {
-    const params = approvalStatus ? { approvalStatus } : {};
+export const getAllVehicles = async (opts?: { approvalStatus?: string; vendorId?: string }) => {
+    const params: Record<string, string> = {};
+    if (opts?.approvalStatus) params.approvalStatus = opts.approvalStatus;
+    if (opts?.vendorId) params.vendorId = opts.vendorId;
     const response = await axiosInstance.get("/admin/vehicles", { params });
     return response.data;
 };
@@ -236,6 +238,94 @@ export const rejectVehicle = async (vehicleId: string, message: string) => {
 export const getAllBookings = async () => {
     const response = await axiosInstance.get("/admin/bookings");
     return response.data;
+};
+
+export interface RevenueReportRow {
+    _id: string;
+    createdAt: string;
+    customerName: string;
+    customerEmail: string;
+    vendorName?: string;
+    vendorEmail?: string;
+    vehicleName: string;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    pricePerDay: number;
+    totalAmount: number;
+    bookingStatus: string;
+    paymentStatus: string;
+    pickupCity: string;
+}
+
+export interface RevenueReportQuery {
+    userId?: string;
+    vendorId?: string;
+    vehicleId?: string;
+    from?: string;
+    to?: string;
+}
+
+export interface VendorRevenueFilterOptions {
+    vehicles: { _id: string; name: string }[];
+    customers: { _id: string; name: string; email: string }[];
+}
+
+export const getAdminRevenueReport = async (query?: RevenueReportQuery) => {
+    const response = await axiosInstance.get("/admin/revenue-report", { params: query });
+    return response.data as {
+        success: boolean;
+        rows: RevenueReportRow[];
+        summary: { count: number; totalAmount: number };
+    };
+};
+
+export const getVendorRevenueReport = async (query?: RevenueReportQuery) => {
+    const response = await axiosInstance.get("/vendor/revenue-report", { params: query });
+    return response.data as {
+        success: boolean;
+        rows: RevenueReportRow[];
+        summary: { count: number; totalAmount: number };
+        filterOptions: VendorRevenueFilterOptions;
+    };
+};
+
+/** Download paid booking revenue as CSV (optional query matches the table filters). */
+export const downloadRevenueReportCsv = async (
+    scope: "admin" | "vendor",
+    query?: RevenueReportQuery
+) => {
+    const path =
+        scope === "admin" ? "/admin/revenue-report/csv" : "/vendor/revenue-report/csv";
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename =
+        scope === "admin"
+            ? `wheelify-platform-revenue-${stamp}.csv`
+            : `wheelify-my-revenue-${stamp}.csv`;
+
+    const response = await axiosInstance.get(path, {
+        responseType: "blob",
+        headers: { Accept: "text/csv" },
+        params: query,
+    });
+
+    const blob = response.data as Blob;
+    if (!blob.type.includes("csv") && blob.type.includes("json")) {
+        const text = await blob.text();
+        try {
+            const err = JSON.parse(text) as { message?: string };
+            throw new Error(err.message || "Failed to download report");
+        } catch {
+            throw new Error("Failed to download report");
+        }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 };
 
 // Public Search API - Vehicles

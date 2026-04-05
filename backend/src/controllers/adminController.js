@@ -3,6 +3,12 @@ import VendorApplication from "../models/vendorApplication.model.js";
 import Vehicle from "../models/vehicle.model.js";
 import Booking from "../models/booking.model.js";
 import sendEmail from "../utils/emailTemplates.js";
+import { bookingsToRevenueCsv } from "../utils/revenueReportCsv.js";
+import {
+    bookingToRevenueRow,
+    parseRevenueQueryParams,
+    queryAdminRevenueBookings,
+} from "../utils/revenueReportQueries.js";
 
 // Get dashboard statistics
 export const getDashboardStats = async (req, res) => {
@@ -448,11 +454,14 @@ export const getVendorApplicationDetails = async (req, res) => {
 // Get all vehicles
 export const getAllVehicles = async (req, res) => {
     try {
-        const { approvalStatus } = req.query;
-        
+        const { approvalStatus, vendorId } = req.query;
+
         let query = {};
         if (approvalStatus) {
             query.approvalStatus = approvalStatus;
+        }
+        if (vendorId) {
+            query.vendorId = vendorId;
         }
 
         const vehicles = await Vehicle.find(query)
@@ -634,6 +643,54 @@ export const getAllBookings = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to fetch bookings",
+        });
+    }
+};
+
+// Paid revenue report (JSON, supports filters via query params)
+export const getRevenueReport = async (req, res) => {
+    try {
+        const params = parseRevenueQueryParams(req.query);
+        const bookings = await queryAdminRevenueBookings(params);
+        const rows = bookings.map((b) => bookingToRevenueRow(b, true));
+        const totalAmount = rows.reduce((sum, r) => sum + r.totalAmount, 0);
+
+        return res.status(200).json({
+            success: true,
+            rows,
+            summary: {
+                count: rows.length,
+                totalAmount,
+            },
+        });
+    } catch (error) {
+        console.error("Revenue report error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch revenue report",
+        });
+    }
+};
+
+// Paid revenue rows as CSV (same filters as GET /revenue-report)
+export const getRevenueReportCsv = async (req, res) => {
+    try {
+        const params = parseRevenueQueryParams(req.query);
+        const bookings = await queryAdminRevenueBookings(params);
+
+        const csv = bookingsToRevenueCsv(bookings, { includeVendor: true });
+        const stamp = new Date().toISOString().slice(0, 10);
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="wheelify-platform-revenue-${stamp}.csv"`
+        );
+        return res.status(200).send(csv);
+    } catch (error) {
+        console.error("Revenue report CSV error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to generate revenue report",
         });
     }
 };

@@ -23,6 +23,7 @@ import {
     ShieldCheck,
     Car,
     Calendar,
+    FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -58,6 +59,11 @@ const adminNavItems = [
         title: "Bookings",
         url: "/admin/bookings",
         icon: Calendar,
+    },
+    {
+        title: "Revenue",
+        url: "/admin/revenue",
+        icon: FileSpreadsheet,
     },
     {
         title: "Licenses",

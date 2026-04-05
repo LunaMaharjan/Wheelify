@@ -4,6 +4,13 @@ import Rental from "../models/rental.model.js";
 import Booking from "../models/booking.model.js";
 import User from "../models/user.model.js";
 import sendEmail from "../utils/emailTemplates.js";
+import { bookingsToRevenueCsv, revenueBookingFilter } from "../utils/revenueReportCsv.js";
+import {
+    bookingToRevenueRow,
+    getVendorRevenueFilterOptions,
+    parseRevenueQueryParams,
+    queryVendorRevenueBookings,
+} from "../utils/revenueReportQueries.js";
 
 // Submit vendor application
 export const submitApplication = async (req, res) => {
@@ -493,11 +500,9 @@ export const getMyRevenue = async (req, res) => {
         const vendorVehicles = await Vehicle.find({ vendorId: userId }).select("_id");
         const vehicleIds = vendorVehicles.map(v => v._id);
 
-        // Get all bookings for vendor's vehicles with paid status
-        const bookings = await Booking.find({ 
+        const bookings = await Booking.find({
             vehicleId: { $in: vehicleIds },
-            bookingStatus: { $in: ["confirmed", "active", "completed"] },
-            paymentStatus: "paid"
+            ...revenueBookingFilter,
         });
 
         const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
@@ -526,6 +531,76 @@ export const getMyRevenue = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to fetch revenue"
+        });
+    }
+};
+
+// Paid revenue report JSON (filters + dropdown options)
+export const getVendorRevenueReport = async (req, res) => {
+    try {
+        const userId = req.userId;
+
+        const user = await User.findById(userId);
+        if (!user || user.role !== "vendor") {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Vendor privileges required.",
+            });
+        }
+
+        const params = parseRevenueQueryParams(req.query);
+        const bookings = await queryVendorRevenueBookings(userId, params);
+        const rows = bookings.map((b) => bookingToRevenueRow(b, false));
+        const totalAmount = rows.reduce((sum, r) => sum + r.totalAmount, 0);
+        const filterOptions = await getVendorRevenueFilterOptions(userId);
+
+        return res.status(200).json({
+            success: true,
+            rows,
+            summary: {
+                count: rows.length,
+                totalAmount,
+            },
+            filterOptions,
+        });
+    } catch (error) {
+        console.error("Vendor revenue report error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to fetch revenue report",
+        });
+    }
+};
+
+// CSV export (same filters as GET /revenue-report)
+export const getMyRevenueReportCsv = async (req, res) => {
+    try {
+        const userId = req.userId;
+
+        const user = await User.findById(userId);
+        if (!user || user.role !== "vendor") {
+            return res.status(403).json({
+                success: false,
+                message: "Access denied. Vendor privileges required."
+            });
+        }
+
+        const params = parseRevenueQueryParams(req.query);
+        const bookings = await queryVendorRevenueBookings(userId, params);
+
+        const csv = bookingsToRevenueCsv(bookings, { includeVendor: false });
+        const stamp = new Date().toISOString().slice(0, 10);
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="wheelify-my-revenue-${stamp}.csv"`
+        );
+        return res.status(200).send(csv);
+    } catch (error) {
+        console.error("Vendor revenue CSV error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to generate revenue report"
         });
     }
 };

@@ -15,7 +15,8 @@ import {
     approveVehicle,
     rejectVehicle,
     getAllBookings,
-    // ...existing imports
+    getRevenueReport,
+    getRevenueReportCsv,
 } from "../controllers/adminController.js";
 import { updateTerms } from "../controllers/contentController.js";
 import { getLicenseSubmissions, reviewLicenseSubmission } from "../controllers/licenseController.js";
@@ -52,6 +53,8 @@ router.patch("/vehicles/:id/reject", rejectVehicle);
 
 // Booking management routes
 router.get("/bookings", getAllBookings);
+router.get("/revenue-report/csv", getRevenueReportCsv);
+router.get("/revenue-report", getRevenueReport);
 
 // Terms management (admin)
 router.patch("/terms", updateTerms);
