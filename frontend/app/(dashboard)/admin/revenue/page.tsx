@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevenueReportCsvButton } from "@/components/revenue/RevenueReportCsvButton";
 import { RevenueReportTable } from "@/components/revenue/RevenueReportTable";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { FileSpreadsheet, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import {
     getAdminRevenueReport,
     getAllUsers,
@@ -24,6 +25,14 @@ import {
     type RevenueReportQuery,
     type RevenueReportRow,
 } from "@/lib/api";
+import {
+    DUMMY_ADMIN_REVENUE_ROWS,
+    filterAdminDummyRows,
+    getDummyAdminCustomerOptions,
+    getDummyAdminVehiclesForVendor,
+    getDummyAdminVendorOptions,
+    summarizeRevenueRows,
+} from "@/lib/revenueDummyData";
 
 const ALL = "__all__";
 
@@ -58,23 +67,48 @@ export default function AdminRevenueReportPage() {
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
 
-    const [rows, setRows] = useState<RevenueReportRow[]>([]);
-    const [summary, setSummary] = useState({ count: 0, totalAmount: 0 });
+    const [apiRows, setApiRows] = useState<RevenueReportRow[]>([]);
     const [appliedQuery, setAppliedQuery] = useState<RevenueReportQuery>({});
     const [loadingMeta, setLoadingMeta] = useState(true);
     const [loadingReport, setLoadingReport] = useState(true);
+    const [useDummyData, setUseDummyData] = useState(false);
 
-    const customers = useMemo(
-        () => users.filter((u) => u.role === "user"),
-        [users]
-    );
+    const initialApiFetchDone = useRef(false);
+    const prevDummy = useRef(useDummyData);
 
-    const loadVehiclesForVendor = useCallback(async (vid: string) => {
-        if (vid === ALL) {
-            setVehicles([]);
-            setVehicleId(ALL);
-            return;
+    const customerSelectOptions = useMemo(() => {
+        const customers = users.filter((u) => u.role === "user");
+        const map = new Map<string, UserOpt>();
+        customers.forEach((u) => map.set(u._id, u));
+        if (useDummyData) {
+            getDummyAdminCustomerOptions().forEach((u) => {
+                if (!map.has(u._id)) map.set(u._id, u);
+            });
         }
+        return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }, [users, useDummyData]);
+
+    const vendorSelectOptions = useMemo(() => {
+        const map = new Map<string, VendorOpt>();
+        vendors.forEach((v) => map.set(v._id, v));
+        if (useDummyData) {
+            getDummyAdminVendorOptions().forEach((v) => {
+                if (!map.has(v._id)) map.set(v._id, v);
+            });
+        }
+        return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }, [vendors, useDummyData]);
+
+    const displayRows = useMemo(() => {
+        if (!useDummyData) return apiRows;
+        return filterAdminDummyRows(DUMMY_ADMIN_REVENUE_ROWS, appliedQuery);
+    }, [useDummyData, apiRows, appliedQuery]);
+
+    const displaySummary = useMemo(() => summarizeRevenueRows(displayRows), [displayRows]);
+
+    const tableLoading = !useDummyData && loadingReport;
+
+    const fetchVehiclesFromApi = useCallback(async (vid: string) => {
         try {
             const res = await getAllVehicles({ vendorId: vid });
             if (res?.success && res?.vehicles) {
@@ -93,6 +127,20 @@ export default function AdminRevenueReportPage() {
             toast.error("Failed to load vehicles for vendor");
         }
     }, []);
+
+    useEffect(() => {
+        if (vendorId === ALL) {
+            setVehicles([]);
+            setVehicleId(ALL);
+            return;
+        }
+        if (useDummyData) {
+            setVehicles(getDummyAdminVehiclesForVendor(vendorId));
+            setVehicleId(ALL);
+            return;
+        }
+        fetchVehiclesFromApi(vendorId);
+    }, [vendorId, useDummyData, fetchVehiclesFromApi]);
 
     useEffect(() => {
         let cancelled = false;
@@ -115,17 +163,12 @@ export default function AdminRevenueReportPage() {
         };
     }, []);
 
-    useEffect(() => {
-        loadVehiclesForVendor(vendorId);
-    }, [vendorId, loadVehiclesForVendor]);
-
     const fetchReport = useCallback(async (q: RevenueReportQuery) => {
         setLoadingReport(true);
         try {
             const res = await getAdminRevenueReport(q);
             if (res?.success) {
-                setRows(res.rows);
-                setSummary(res.summary);
+                setApiRows(res.rows);
                 setAppliedQuery(q);
             }
         } catch (e: unknown) {
@@ -135,20 +178,34 @@ export default function AdminRevenueReportPage() {
                           ?.message
                     : undefined;
             toast.error("Failed to load report", { description: msg });
-            setRows([]);
-            setSummary({ count: 0, totalAmount: 0 });
+            setApiRows([]);
         } finally {
             setLoadingReport(false);
         }
     }, []);
 
     useEffect(() => {
+        if (loadingMeta || useDummyData) return;
+        if (!initialApiFetchDone.current) {
+            initialApiFetchDone.current = true;
+            fetchReport({});
+        }
+    }, [loadingMeta, useDummyData, fetchReport]);
+
+    useEffect(() => {
         if (loadingMeta) return;
-        fetchReport({});
-    }, [loadingMeta, fetchReport]);
+        if (prevDummy.current && !useDummyData) {
+            fetchReport(appliedQuery);
+        }
+        prevDummy.current = useDummyData;
+    }, [useDummyData, loadingMeta, appliedQuery, fetchReport]);
 
     const handleApply = () => {
-        fetchReport(buildQuery(userId, vendorId, vehicleId, from, to));
+        const q = buildQuery(userId, vendorId, vehicleId, from, to);
+        setAppliedQuery(q);
+        if (!useDummyData) {
+            fetchReport(q);
+        }
     };
 
     const handleReset = () => {
@@ -157,7 +214,23 @@ export default function AdminRevenueReportPage() {
         setVehicleId(ALL);
         setFrom("");
         setTo("");
-        fetchReport({});
+        setAppliedQuery({});
+        if (!useDummyData) {
+            fetchReport({});
+        }
+    };
+
+    const onDummyToggle = (checked: boolean) => {
+        setUseDummyData(checked);
+        if (checked) {
+            setUserId(ALL);
+            setVendorId(ALL);
+            setVehicleId(ALL);
+            setFrom("");
+            setTo("");
+            setAppliedQuery({});
+            setVehicles([]);
+        }
     };
 
     if (loadingMeta) {
@@ -172,14 +245,30 @@ export default function AdminRevenueReportPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+                <div className="space-y-3">
                     <h2 className="text-3xl font-bold tracking-tight">Revenue report</h2>
                     <p className="text-muted-foreground">
                         Filter paid bookings (confirmed, active, or completed) by customer, vendor,
-                        vehicle, and booking date. CSV uses the same filters as the table.
+                        vehicle, and booking date. With dummy data, filters apply in the browser;
+                        otherwise results come from the API.
                     </p>
+                    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 w-fit">
+                        <Switch
+                            id="admin-dummy-revenue"
+                            checked={useDummyData}
+                            onCheckedChange={onDummyToggle}
+                        />
+                        <Label htmlFor="admin-dummy-revenue" className="cursor-pointer text-sm font-medium">
+                            Load dummy data
+                        </Label>
+                    </div>
                 </div>
-                <RevenueReportCsvButton scope="admin" query={appliedQuery} />
+                <RevenueReportCsvButton
+                    scope="admin"
+                    query={appliedQuery}
+                    dummyMode={useDummyData}
+                    dummyRows={displayRows}
+                />
             </div>
 
             <Card>
@@ -189,7 +278,8 @@ export default function AdminRevenueReportPage() {
                         <CardTitle>Filters</CardTitle>
                     </div>
                     <CardDescription>
-                        Booking date range uses when the booking was created (UTC).
+                        Booking date range uses when the booking was created (UTC). Demo rows
+                        include extra customers/vendors/vehicles in the lists so you can try filters.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -202,7 +292,7 @@ export default function AdminRevenueReportPage() {
                                 </SelectTrigger>
                                 <SelectContent className="max-h-72">
                                     <SelectItem value={ALL}>All customers</SelectItem>
-                                    {customers.map((u) => (
+                                    {customerSelectOptions.map((u) => (
                                         <SelectItem key={u._id} value={u._id}>
                                             {u.name} ({u.email})
                                         </SelectItem>
@@ -218,7 +308,7 @@ export default function AdminRevenueReportPage() {
                                 </SelectTrigger>
                                 <SelectContent className="max-h-72">
                                     <SelectItem value={ALL}>All vendors</SelectItem>
-                                    {vendors.map((v) => (
+                                    {vendorSelectOptions.map((v) => (
                                         <SelectItem key={v._id} value={v._id}>
                                             {v.name}
                                         </SelectItem>
@@ -272,8 +362,12 @@ export default function AdminRevenueReportPage() {
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button type="button" onClick={handleApply} disabled={loadingReport}>
-                            {loadingReport ? (
+                        <Button
+                            type="button"
+                            onClick={handleApply}
+                            disabled={tableLoading}
+                        >
+                            {tableLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Apply filters
@@ -290,25 +384,34 @@ export default function AdminRevenueReportPage() {
                 <CardHeader>
                     <CardTitle>Results</CardTitle>
                     <CardDescription>
-                        {loadingReport ? (
+                        {useDummyData ? (
+                            <>
+                                Demo · {displaySummary.count} booking
+                                {displaySummary.count === 1 ? "" : "s"} · Total{" "}
+                                <span className="font-semibold text-foreground">
+                                    ${displaySummary.totalAmount.toLocaleString()}
+                                </span>
+                            </>
+                        ) : tableLoading ? (
                             "Loading…"
                         ) : (
                             <>
-                                {summary.count} booking{summary.count === 1 ? "" : "s"} · Total{" "}
+                                {displaySummary.count} booking{displaySummary.count === 1 ? "" : "s"}{" "}
+                                · Total{" "}
                                 <span className="font-semibold text-foreground">
-                                    ${summary.totalAmount.toLocaleString()}
+                                    ${displaySummary.totalAmount.toLocaleString()}
                                 </span>
                             </>
                         )}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {loadingReport ? (
+                    {tableLoading ? (
                         <div className="flex justify-center py-12 text-muted-foreground">
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                     ) : (
-                        <RevenueReportTable rows={rows} showVendor />
+                        <RevenueReportTable rows={displayRows} showVendor />
                     )}
                 </CardContent>
             </Card>

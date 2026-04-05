@@ -256,6 +256,10 @@ export interface RevenueReportRow {
     bookingStatus: string;
     paymentStatus: string;
     pickupCity: string;
+    /** Demo dataset only — matches filter dropdown values for client-side filtering */
+    filterCustomerUserId?: string;
+    filterVendorUserId?: string;
+    filterVehicleId?: string;
 }
 
 export interface RevenueReportQuery {
