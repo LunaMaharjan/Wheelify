@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/dialog";
 import { PreRentalImageUpload } from "@/components/booking/PreRentalImageUpload";
 import { VendorPostRentalImageUpload } from "@/components/booking/VendorPostRentalImageUpload";
+import Image from "next/image";
+import { ImageModal } from "@/components/ui/image-modal";
 
 interface DamageItem {
     area: string;
@@ -101,6 +103,12 @@ export default function VendorBookingsPage() {
     const [isComparisonDialogOpen, setIsComparisonDialogOpen] = useState(false);
     const [comparisonResult, setComparisonResult] = useState<ConditionComparison | null>(null);
     const [comparisonError, setComparisonError] = useState<string | null>(null);
+    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+    const [conditionPhotosDialog, setConditionPhotosDialog] = useState<{
+        title: string;
+        urls: string[];
+        uploadedAt?: string;
+    } | null>(null);
 
     const getOverallAssessmentText = (result: ConditionComparison | null) => {
         if (!result || !result.overallAssessment) {
@@ -402,6 +410,7 @@ export default function VendorBookingsPage() {
                                                 <TableHead>Amount</TableHead>
                                                 <TableHead>Booking Status</TableHead>
                                                 <TableHead>Payment Status</TableHead>
+                                                <TableHead>Condition photos</TableHead>
                                                 <TableHead>Created</TableHead>
                                                 <TableHead>Actions</TableHead>
                                             </TableRow>
@@ -486,6 +495,56 @@ export default function VendorBookingsPage() {
                                                     </TableCell>
                                                     <TableCell>
                                                         {getPaymentStatusBadge(booking.paymentStatus)}
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <div className="flex flex-col gap-1.5 py-1">
+                                                            {booking.preRentalImages &&
+                                                            booking.preRentalImages.length > 0 ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="w-full justify-start"
+                                                                    onClick={() =>
+                                                                        setConditionPhotosDialog({
+                                                                            title: "Before rental",
+                                                                            urls: booking.preRentalImages!,
+                                                                            uploadedAt:
+                                                                                booking.preRentalImagesUploadedAt,
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    <Camera className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                                                                    Before
+                                                                </Button>
+                                                            ) : null}
+                                                            {booking.vendorPostRentalImages &&
+                                                            booking.vendorPostRentalImages.length > 0 ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="w-full justify-start"
+                                                                    onClick={() =>
+                                                                        setConditionPhotosDialog({
+                                                                            title: "After rental (vendor)",
+                                                                            urls: booking.vendorPostRentalImages!,
+                                                                            uploadedAt:
+                                                                                booking.vendorPostRentalImagesUploadedAt,
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    <Camera className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                                                                    After
+                                                                </Button>
+                                                            ) : null}
+                                                            {(!booking.preRentalImages ||
+                                                                booking.preRentalImages.length === 0) &&
+                                                                (!booking.vendorPostRentalImages ||
+                                                                    booking.vendorPostRentalImages.length === 0) && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    —
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {formatDateTime(booking.createdAt)}
@@ -722,6 +781,52 @@ export default function VendorBookingsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <Dialog
+                open={!!conditionPhotosDialog}
+                onOpenChange={(open) => {
+                    if (!open) setConditionPhotosDialog(null);
+                }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {conditionPhotosDialog?.title ?? "Photos"}
+                        </DialogTitle>
+                        {conditionPhotosDialog?.uploadedAt && (
+                            <DialogDescription>
+                                Uploaded{" "}
+                                {formatDateTime(conditionPhotosDialog.uploadedAt)}
+                            </DialogDescription>
+                        )}
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+                        {conditionPhotosDialog?.urls.map((url, idx) => (
+                            <button
+                                key={`${url}-${idx}`}
+                                type="button"
+                                onClick={() => setPreviewImageUrl(url)}
+                                className="relative aspect-square w-full overflow-hidden rounded-lg border bg-muted transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                                <Image
+                                    src={url}
+                                    alt={`${conditionPhotosDialog.title} ${idx + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 640px) 50vw, 200px"
+                                />
+                            </button>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <ImageModal
+                isOpen={!!previewImageUrl}
+                imageSrc={previewImageUrl}
+                onClose={() => setPreviewImageUrl(null)}
+                alt="Booking condition photo"
+            />
         </div>
     );
 }
