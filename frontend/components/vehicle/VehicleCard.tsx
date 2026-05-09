@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Car, MapPin, DollarSign, Star, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatVehicleCategory } from "@/lib/vehicleCategories";
 
 export interface VehicleCardProps {
     vehicle: {
         _id: string;
         name: string;
         type: string;
+        category?: string;
         description?: string;
         images: string[];
         pricePerDay: number;
@@ -99,14 +101,20 @@ export function VehicleCard({ vehicle, className }: VehicleCardProps) {
                         </div>
                     )}
                     
-                    {/* Type Badge - Top Right */}
-                    <div className="absolute top-3 right-3 z-10">
-                        <Badge 
-                            variant="secondary" 
-                            className="backdrop-blur-sm bg-background/80 border border-border/50 shadow-lg"
+                    {/* Type / category badges - Top Right */}
+                    <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5 max-w-[min(100%-1.5rem,14rem)]">
+                        <Badge
+                            variant="secondary"
+                            className="backdrop-blur-sm bg-background/80 border border-border/50 shadow-lg shrink-0"
                         >
                             <span className="mr-1.5 text-base">{typeIcon}</span>
                             {formatType(vehicle.type)}
+                        </Badge>
+                        <Badge
+                            variant="outline"
+                            className="backdrop-blur-sm bg-background/80 border-border/50 shadow-lg text-xs line-clamp-2 text-right whitespace-normal"
+                        >
+                            {formatVehicleCategory(vehicle.category)}
                         </Badge>
                     </div>
 

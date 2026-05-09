@@ -356,7 +356,7 @@ export const createBooking = async (req, res) => {
         }
 
         // Check if vehicle is approved
-        if (vehicle.verificationStatus !== "approved") {
+        if (vehicle.approvalStatus !== "approved") {
             return res.status(400).json({
                 success: false,
                 message: "Vehicle is not approved for booking"
@@ -372,14 +372,17 @@ export const createBooking = async (req, res) => {
             });
         }
 
-        const approvedLicense = user.licenses.find(
-            license => license.vehicleTypes?.includes(vehicle.category) && license.status === "approved"
+        const licenses = Array.isArray(user.licenses) ? user.licenses : [];
+        const approvedLicense = licenses.find(
+            (license) =>
+                license.vehicleTypes?.includes(vehicle.type) &&
+                license.status === "approved"
         );
 
         if (!approvedLicense) {
             return res.status(403).json({
                 success: false,
-                message: `You need an approved ${vehicle.category} license to book this vehicle. Please upload your license and wait for admin approval.`
+                message: `You need an approved license for ${vehicle.type} vehicles to book this listing. Please upload your license and wait for admin approval.`,
             });
         }
 

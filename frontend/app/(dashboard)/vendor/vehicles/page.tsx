@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Car, Plus, Clock, CheckCircle, XCircle, Edit } from "lucide-react";
 import { getMyVehicles } from "@/lib/api";
 import { VehicleUploadForm } from "@/components/vendor/VehicleUploadForm";
+import { formatVehicleCategory } from "@/lib/vehicleCategories";
 
 interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    category?: string;
     pricePerDay: number;
     status: string;
     images: string[];
@@ -136,8 +138,11 @@ export default function VendorVehiclesPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <CardTitle>{vehicle.name}</CardTitle>
-                                        <CardDescription className="capitalize">
-                                            {vehicle.type}
+                                        <CardDescription className="space-y-0.5">
+                                            <span className="capitalize block">{vehicle.type}</span>
+                                            <span className="text-xs text-muted-foreground block">
+                                                {formatVehicleCategory(vehicle.category)}
+                                            </span>
                                         </CardDescription>
                                     </div>
                                     <div className="flex flex-col gap-1 items-end">

@@ -1,5 +1,6 @@
 import VendorApplication from "../models/vendorApplication.model.js";
 import Vehicle from "../models/vehicle.model.js";
+import { VEHICLE_CATEGORY_VALUES } from "../constants/vehicleCategories.js";
 import Rental from "../models/rental.model.js";
 import Booking from "../models/booking.model.js";
 import User from "../models/user.model.js";
@@ -139,7 +140,7 @@ export const getMyApplication = async (req, res) => {
 export const uploadVehicle = async (req, res) => {
     try {
         const userId = req.userId;
-        const { name, type, description, pricePerDay, location, condition, specifications } = req.body;
+        const { name, type, category, description, pricePerDay, location, condition, specifications } = req.body;
         const bluebook = req.body.bluebook;
         const vehicleImages = req.body.vehicleImages;
 
@@ -157,6 +158,13 @@ export const uploadVehicle = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Name, type, price per day, bluebook, and condition are required"
+            });
+        }
+
+        if (!category || !VEHICLE_CATEGORY_VALUES.includes(category)) {
+            return res.status(400).json({
+                success: false,
+                message: `Category is required and must be one of: ${VEHICLE_CATEGORY_VALUES.join(", ")}`
             });
         }
 
@@ -209,6 +217,7 @@ export const uploadVehicle = async (req, res) => {
             vendorId: userId,
             name: name.trim(),
             type,
+            category,
             description: description?.trim() || "",
             pricePerDay: price,
             location: location?.trim() || "",
@@ -243,10 +252,11 @@ export const uploadVehicle = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "Vehicle uploaded successfully. Please wait for admin approval.",
-            vehicle: {
+                vehicle: {
                 id: vehicle._id,
                 name: vehicle.name,
                 type: vehicle.type,
+                category: vehicle.category,
                 approvalStatus: vehicle.approvalStatus,
                 createdAt: vehicle.createdAt
             }
@@ -265,7 +275,7 @@ export const updateVehicle = async (req, res) => {
     try {
         const userId = req.userId;
         const { vehicleId } = req.params;
-        const { name, type, description, pricePerDay, location, condition, specifications } = req.body;
+        const { name, type, category, description, pricePerDay, location, condition, specifications } = req.body;
         const bluebook = req.body.bluebook;
         const vehicleImages = req.body.vehicleImages;
 
@@ -307,6 +317,13 @@ export const updateVehicle = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Name, type, price per day, and condition are required"
+            });
+        }
+
+        if (!category || !VEHICLE_CATEGORY_VALUES.includes(category)) {
+            return res.status(400).json({
+                success: false,
+                message: `Category is required and must be one of: ${VEHICLE_CATEGORY_VALUES.join(", ")}`
             });
         }
 
@@ -357,6 +374,7 @@ export const updateVehicle = async (req, res) => {
         // Update vehicle
         vehicle.name = name.trim();
         vehicle.type = type;
+        vehicle.category = category;
         vehicle.description = description?.trim() || "";
         vehicle.pricePerDay = price;
         vehicle.location = location?.trim() || "";
@@ -405,6 +423,7 @@ export const updateVehicle = async (req, res) => {
                 id: vehicle._id,
                 name: vehicle.name,
                 type: vehicle.type,
+                category: vehicle.category,
                 approvalStatus: vehicle.approvalStatus,
                 updatedAt: vehicle.updatedAt
             }

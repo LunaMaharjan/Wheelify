@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,18 @@ import { Search, Filter, X, Loader2, Car } from "lucide-react";
 import { searchVehicles, SearchVehiclesParams } from "@/lib/api";
 import { toast } from "sonner";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import {
+    VEHICLE_CATEGORY_OPTIONS,
+    formatVehicleCategory,
+    getCategoryOptionsForVehicleType,
+    sanitizeCategoryForVehicleType,
+} from "@/lib/vehicleCategories";
 
 interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    category?: string;
     description?: string;
     images: string[];
     pricePerDay: number;
@@ -45,6 +52,7 @@ export default function RentPage() {
     // State from URL params
     const [searchQuery, setSearchQuery] = useState(searchParams?.get("q") || "");
     const [type, setType] = useState(searchParams?.get("type") || "");
+    const [category, setCategory] = useState(searchParams?.get("category") || "");
     const [minPrice, setMinPrice] = useState(searchParams?.get("minPrice") || "");
     const [maxPrice, setMaxPrice] = useState(searchParams?.get("maxPrice") || "");
     const [location, setLocation] = useState(searchParams?.get("location") || "");
@@ -54,6 +62,7 @@ export default function RentPage() {
     // Local state for form inputs (before search)
     const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
     const [localType, setLocalType] = useState(type);
+    const [localCategory, setLocalCategory] = useState(category);
     const [localMinPrice, setLocalMinPrice] = useState(minPrice);
     const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice);
     const [localLocation, setLocalLocation] = useState(location);
@@ -69,6 +78,14 @@ export default function RentPage() {
         pages: 0
     });
     const [showFilters, setShowFilters] = useState(false);
+
+    const categoryFilterOptions = useMemo(
+        () =>
+            localType
+                ? getCategoryOptionsForVehicleType(localType)
+                : VEHICLE_CATEGORY_OPTIONS,
+        [localType]
+    );
 
     // Update URL params
     const updateURLParams = useCallback((params: Record<string, string>, resetPage = true) => {
@@ -95,7 +112,7 @@ export default function RentPage() {
         router.push(`/rent${queryString ? `?${queryString}` : ""}`, { scroll: false });
     }, [router, searchParams]);
 
-    // Fetch vehicles based on URL params
+    // Fetch vehicles from URL params (read searchParams here so we never fire with stale mirrored state).
     const fetchVehicles = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -104,15 +121,33 @@ export default function RentPage() {
                 page: currentPage,
                 limit: pagination.limit,
             };
-            
-            if (searchQuery) params.query = searchQuery;
-            if (type) params.type = type;
-            if (minPrice) params.minPrice = Number(minPrice);
-            if (maxPrice) params.maxPrice = Number(maxPrice);
-            if (location) params.location = location;
-            if (condition) params.condition = condition;
-            if (status) params.status = status;
-            
+
+            const q = (searchParams?.get("q") || "").trim();
+            const typeFromUrl = searchParams?.get("type") || "";
+            const categoryFromUrl = searchParams?.get("category") || "";
+            const effectiveCategory = sanitizeCategoryForVehicleType(
+                categoryFromUrl,
+                typeFromUrl
+            );
+
+            if (q) params.query = q;
+            if (typeFromUrl) params.type = typeFromUrl;
+            if (effectiveCategory) params.category = effectiveCategory;
+
+            const minPriceParam = searchParams?.get("minPrice") || "";
+            const maxPriceParam = searchParams?.get("maxPrice") || "";
+            if (minPriceParam) params.minPrice = Number(minPriceParam);
+            if (maxPriceParam) params.maxPrice = Number(maxPriceParam);
+
+            const locationParam = searchParams?.get("location") || "";
+            if (locationParam.trim()) params.location = locationParam;
+
+            const conditionParam = searchParams?.get("condition") || "";
+            if (conditionParam) params.condition = conditionParam;
+
+            const statusParam = searchParams?.get("status")?.trim() || "available";
+            if (statusParam) params.status = statusParam;
+
             const response = await searchVehicles(params);
             
             if (response?.success) {
@@ -129,17 +164,14 @@ export default function RentPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [searchQuery, type, minPrice, maxPrice, location, condition, status, searchParams, pagination.limit]);
+    }, [searchParams, pagination.limit]);
 
-    // Initial load and when URL params change
-    useEffect(() => {
-        fetchVehicles();
-    }, [fetchVehicles]);
-
-    // Sync URL params to state when they change
+    // Sync URL params to mirrored state (UI chips / filter panel)
     useEffect(() => {
         const urlQuery = searchParams?.get("q") || "";
         const urlType = searchParams?.get("type") || "";
+        const urlCategory = searchParams?.get("category") || "";
+        const sanitizedCategory = sanitizeCategoryForVehicleType(urlCategory, urlType);
         const urlMinPrice = searchParams?.get("minPrice") || "";
         const urlMaxPrice = searchParams?.get("maxPrice") || "";
         const urlLocation = searchParams?.get("location") || "";
@@ -149,6 +181,7 @@ export default function RentPage() {
         
         setSearchQuery(urlQuery);
         setType(urlType);
+        setCategory(sanitizedCategory);
         setMinPrice(urlMinPrice);
         setMaxPrice(urlMaxPrice);
         setLocation(urlLocation);
@@ -158,6 +191,7 @@ export default function RentPage() {
         // Sync local state
         setLocalSearchQuery(urlQuery);
         setLocalType(urlType);
+        setLocalCategory(sanitizedCategory);
         setLocalMinPrice(urlMinPrice);
         setLocalMaxPrice(urlMaxPrice);
         setLocalLocation(urlLocation);
@@ -169,11 +203,17 @@ export default function RentPage() {
         setPagination((prev) => ({ ...prev, page: pageNum }));
     }, [searchParams]);
 
+    // Load listings when URL or page size changes
+    useEffect(() => {
+        fetchVehicles();
+    }, [fetchVehicles]);
+
     // Handle search button click
     const handleSearch = () => {
         updateURLParams({
             q: localSearchQuery,
             type: localType,
+            category: localCategory,
             minPrice: localMinPrice,
             maxPrice: localMaxPrice,
             location: localLocation,
@@ -186,6 +226,7 @@ export default function RentPage() {
     const handleClearFilters = () => {
         setLocalSearchQuery("");
         setLocalType("");
+        setLocalCategory("");
         setLocalMinPrice("");
         setLocalMaxPrice("");
         setLocalLocation("");
@@ -200,6 +241,7 @@ export default function RentPage() {
         const newParams: Record<string, string> = {
             q: searchQuery,
             type,
+            category,
             minPrice,
             maxPrice,
             location,
@@ -213,6 +255,7 @@ export default function RentPage() {
     const activeFiltersCount = [
         searchQuery,
         type,
+        category,
         minPrice,
         maxPrice,
         location,
@@ -285,7 +328,16 @@ export default function RentPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
                                 <div className="space-y-2">
                                     <Label htmlFor="type">Vehicle Type</Label>
-                                    <Select value={localType || undefined} onValueChange={(value) => setLocalType(value === "all" ? "" : value)}>
+                                    <Select
+                                        value={localType || undefined}
+                                        onValueChange={(value) => {
+                                            const t = value === "all" ? "" : value;
+                                            setLocalType(t);
+                                            setLocalCategory((prev) =>
+                                                sanitizeCategoryForVehicleType(prev, t)
+                                            );
+                                        }}
+                                    >
                                         <SelectTrigger id="type">
                                             <SelectValue placeholder="All types" />
                                         </SelectTrigger>
@@ -295,6 +347,32 @@ export default function RentPage() {
                                             <SelectItem value="bike">Bike</SelectItem>
                                             <SelectItem value="scooter">Scooter</SelectItem>
                                             <SelectItem value="other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="category-filter">Category</Label>
+                                    <Select
+                                        value={localCategory || undefined}
+                                        onValueChange={(value) => setLocalCategory(value === "all" ? "" : value)}
+                                    >
+                                        <SelectTrigger id="category-filter">
+                                            <SelectValue
+                                                placeholder={
+                                                    localType
+                                                        ? "Category for selected type"
+                                                        : "All categories"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All categories</SelectItem>
+                                            {categoryFilterOptions.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -389,6 +467,14 @@ export default function RentPage() {
                         <Badge variant="secondary" className="gap-1">
                             Type: {type}
                             <button onClick={() => removeFilter("type")}>
+                                <X className="h-3 w-3" />
+                            </button>
+                        </Badge>
+                    )}
+                    {category && (
+                        <Badge variant="secondary" className="gap-1">
+                            Category: {formatVehicleCategory(category)}
+                            <button type="button" onClick={() => removeFilter("category")}>
                                 <X className="h-3 w-3" />
                             </button>
                         </Badge>
@@ -488,6 +574,7 @@ export default function RentPage() {
                                     const currentParams: Record<string, string> = {
                                         q: searchQuery,
                                         type,
+                                        category,
                                         minPrice,
                                         maxPrice,
                                         location,
@@ -512,6 +599,7 @@ export default function RentPage() {
                                     const currentParams: Record<string, string> = {
                                         q: searchQuery,
                                         type,
+                                        category,
                                         minPrice,
                                         maxPrice,
                                         location,

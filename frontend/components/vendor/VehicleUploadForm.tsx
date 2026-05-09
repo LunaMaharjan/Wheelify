@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,11 +23,13 @@ import { Loader2, Upload, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { uploadVehicle, updateVehicle } from "@/lib/api";
 import { useEffect } from "react";
+import { getCategoryOptionsForVehicleType } from "@/lib/vehicleCategories";
 
 interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    category?: string;
     description?: string;
     pricePerDay: number;
     location?: string;
@@ -49,6 +51,7 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
     const [formData, setFormData] = useState({
         name: "",
         type: "",
+        category: "",
         description: "",
         pricePerDay: "",
         location: "",
@@ -60,12 +63,27 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
     const [existingImages, setExistingImages] = useState<string[]>([]);
     const isEditMode = !!vehicle;
 
+    const categoryOptions = useMemo(
+        () => getCategoryOptionsForVehicleType(formData.type),
+        [formData.type]
+    );
+
     // Pre-fill form when editing
     useEffect(() => {
         if (vehicle && open) {
+            const vType = vehicle.type || "";
+            const allowedCats = new Set(
+                getCategoryOptionsForVehicleType(vType).map((o) => o.value)
+            );
+            let cat = vehicle.category || "";
+            if (!allowedCats.has(cat)) {
+                cat = allowedCats.has("other") ? "other" : "";
+            }
+
             setFormData({
                 name: vehicle.name || "",
-                type: vehicle.type || "",
+                type: vType,
+                category: cat,
                 description: vehicle.description || "",
                 pricePerDay: vehicle.pricePerDay?.toString() || "",
                 location: vehicle.location || "",
@@ -80,6 +98,7 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
             setFormData({
                 name: "",
                 type: "",
+                category: "",
                 description: "",
                 pricePerDay: "",
                 location: "",
@@ -124,7 +143,7 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
         e.preventDefault();
 
         // Validation
-        if (!formData.name || !formData.type || !formData.pricePerDay || !formData.condition) {
+        if (!formData.name || !formData.type || !formData.category || !formData.pricePerDay || !formData.condition) {
             toast.error("Please fill in all required fields");
             return;
         }
@@ -147,6 +166,7 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
             const formDataToSend = new FormData();
             formDataToSend.append("name", formData.name);
             formDataToSend.append("type", formData.type);
+            formDataToSend.append("category", formData.category);
             formDataToSend.append("pricePerDay", formData.pricePerDay);
             formDataToSend.append("condition", formData.condition);
             if (formData.description) {
@@ -183,6 +203,7 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
                 setFormData({
                     name: "",
                     type: "",
+                    category: "",
                     description: "",
                     pricePerDay: "",
                     location: "",
@@ -231,8 +252,8 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2 sm:col-span-2">
                             <Label htmlFor="name">
                                 Vehicle Name <span className="text-destructive">*</span>
                             </Label>
@@ -250,10 +271,21 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
                             </Label>
                             <Select
                                 value={formData.type}
-                                onValueChange={(value) => handleInputChange("type", value)}
+                                onValueChange={(typeValue) => {
+                                    setFormData((prev) => {
+                                        const allowed = new Set(
+                                            getCategoryOptionsForVehicleType(typeValue).map((o) => o.value)
+                                        );
+                                        const nextCat =
+                                            prev.category && allowed.has(prev.category)
+                                                ? prev.category
+                                                : "";
+                                        return { ...prev, type: typeValue, category: nextCat };
+                                    });
+                                }}
                                 required
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="type">
                                     <SelectValue placeholder="Select type" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -261,6 +293,34 @@ export function VehicleUploadForm({ open, onOpenChange, onSuccess, vehicle }: Ve
                                     <SelectItem value="bike">Bike</SelectItem>
                                     <SelectItem value="scooter">Scooter</SelectItem>
                                     <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="category">
+                                Category <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                                value={formData.category || undefined}
+                                onValueChange={(value) => handleInputChange("category", value)}
+                                required
+                                disabled={!formData.type}
+                            >
+                                <SelectTrigger id="category">
+                                    <SelectValue
+                                        placeholder={
+                                            formData.type
+                                                ? "Select category"
+                                                : "Choose vehicle type first"
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categoryOptions.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

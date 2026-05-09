@@ -454,7 +454,7 @@ export const getVendorApplicationDetails = async (req, res) => {
 // Get all vehicles
 export const getAllVehicles = async (req, res) => {
     try {
-        const { approvalStatus, vendorId } = req.query;
+        const { approvalStatus, vendorId, category, type } = req.query;
 
         let query = {};
         if (approvalStatus) {
@@ -462,6 +462,12 @@ export const getAllVehicles = async (req, res) => {
         }
         if (vendorId) {
             query.vendorId = vendorId;
+        }
+        if (category) {
+            query.category = category;
+        }
+        if (type) {
+            query.type = type;
         }
 
         const vehicles = await Vehicle.find(query)

@@ -44,11 +44,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { ImageModal } from "@/components/ui/image-modal";
+import { VEHICLE_CATEGORY_OPTIONS, formatVehicleCategory } from "@/lib/vehicleCategories";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    category?: string;
     pricePerDay: number;
     condition: string;
     status: string;
@@ -76,6 +85,7 @@ export default function VehiclesManagementPage() {
     const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("");
     const [activeTab, setActiveTab] = useState("pending");
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [rejectionMessage, setRejectionMessage] = useState("");
@@ -119,16 +129,21 @@ export default function VehiclesManagementPage() {
 
         // Filter by search query
         if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
             filtered = filtered.filter(
                 (v) =>
-                    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    v.vendorId.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    v.vendorId.email.toLowerCase().includes(searchQuery.toLowerCase())
+                    v.name.toLowerCase().includes(q) ||
+                    v.vendorId.name.toLowerCase().includes(q) ||
+                    v.vendorId.email.toLowerCase().includes(q)
             );
         }
 
+        if (categoryFilter) {
+            filtered = filtered.filter((v) => (v.category || "other") === categoryFilter);
+        }
+
         setFilteredVehicles(filtered);
-    }, [vehicles, activeTab, searchQuery]);
+    }, [vehicles, activeTab, searchQuery, categoryFilter]);
 
     const handleApproveVehicle = async (vehicle: Vehicle) => {
         setIsApproving(vehicle._id);
@@ -244,14 +259,29 @@ export default function VehiclesManagementPage() {
                                 Review and approve vehicle uploads
                             </CardDescription>
                         </div>
-                        <div className="relative w-64">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search vehicles..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-8"
-                            />
+                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <div className="relative w-full sm:w-64">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search vehicles..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                            <Select value={categoryFilter || "all"} onValueChange={(v) => setCategoryFilter(v === "all" ? "" : v)}>
+                                <SelectTrigger className="w-full sm:w-[200px]">
+                                    <SelectValue placeholder="All categories" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All categories</SelectItem>
+                                    {VEHICLE_CATEGORY_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </CardHeader>
@@ -295,6 +325,7 @@ export default function VehiclesManagementPage() {
                                             <TableHead>Vehicle</TableHead>
                                             <TableHead>Vendor</TableHead>
                                             <TableHead>Type</TableHead>
+                                            <TableHead>Category</TableHead>
                                             <TableHead>Price/Day</TableHead>
                                             <TableHead>Condition</TableHead>
                                             <TableHead>Status</TableHead>
@@ -337,6 +368,7 @@ export default function VehiclesManagementPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="capitalize">{vehicle.type}</TableCell>
+                                                <TableCell>{formatVehicleCategory(vehicle.category)}</TableCell>
                                                 <TableCell>Rs. {vehicle.pricePerDay}</TableCell>
                                                 <TableCell className="capitalize">{vehicle.condition}</TableCell>
                                                 <TableCell>{getApprovalStatusBadge(vehicle.approvalStatus)}</TableCell>
@@ -469,6 +501,10 @@ export default function VehiclesManagementPage() {
                                 <div>
                                     <Label className="text-muted-foreground">Type</Label>
                                     <p className="font-medium capitalize">{viewingVehicle.type}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">Category</Label>
+                                    <p className="font-medium">{formatVehicleCategory(viewingVehicle.category)}</p>
                                 </div>
                                 <div>
                                     <Label className="text-muted-foreground">Price per Day</Label>

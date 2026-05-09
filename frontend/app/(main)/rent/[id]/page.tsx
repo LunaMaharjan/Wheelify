@@ -33,11 +33,13 @@ import { getVehicleById } from "@/lib/api";
 import { toast } from "sonner";
 import { ImageModal } from "@/components/ui/image-modal";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
+import { formatVehicleCategory } from "@/lib/vehicleCategories";
 
 interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    category?: string;
     description?: string;
     images: string[];
     pricePerDay: number;
@@ -284,8 +286,11 @@ export default function VehicleDetailsPage() {
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <CardTitle className="text-2xl mb-2">{vehicle.name}</CardTitle>
-                                    <CardDescription className="text-base">
-                                        {formatType(vehicle.type)}
+                                    <CardDescription className="text-base flex flex-wrap items-center gap-2">
+                                        <span className="capitalize">{formatType(vehicle.type)}</span>
+                                        <Badge variant="outline" className="font-normal">
+                                            {formatVehicleCategory(vehicle.category)}
+                                        </Badge>
                                     </CardDescription>
                                 </div>
                                 <Badge variant={statusVariant} className="gap-1.5">

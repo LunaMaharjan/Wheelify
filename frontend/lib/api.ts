@@ -336,6 +336,7 @@ export const downloadRevenueReportCsv = async (
 export interface SearchVehiclesParams {
     query?: string;
     type?: string;
+    category?: string;
     minPrice?: number;
     maxPrice?: number;
     location?: string;

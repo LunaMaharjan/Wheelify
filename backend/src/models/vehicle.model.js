@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { VEHICLE_CATEGORY_VALUES } from "../constants/vehicleCategories.js";
 
 const vehicleSchema = new mongoose.Schema({
     vendorId: {
@@ -15,6 +16,11 @@ const vehicleSchema = new mongoose.Schema({
         type: String,
         required: [true, "Vehicle type is required"],
         enum: ["car", "bike", "scooter", "other"]
+    },
+    category: {
+        type: String,
+        enum: VEHICLE_CATEGORY_VALUES,
+        default: "other"
     },
     description: {
         type: String,

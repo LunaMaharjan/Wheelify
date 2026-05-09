@@ -6,6 +6,7 @@ export const searchVehicles = async (req, res) => {
         const {
             query,
             type,
+            category,
             minPrice,
             maxPrice,
             location,
@@ -25,16 +26,22 @@ export const searchVehicles = async (req, res) => {
 
         // Text search
         if (query) {
+            const safe = String(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             searchQuery.$or = [
                 { name: { $regex: query, $options: "i" } },
                 { description: { $regex: query, $options: "i" } },
-                { location: { $regex: query, $options: "i" } }
+                { location: { $regex: query, $options: "i" } },
+                { category: { $regex: safe, $options: "i" } },
             ];
         }
 
         // Type filter
         if (type) {
             searchQuery.type = type;
+        }
+
+        if (category) {
+            searchQuery.category = category;
         }
 
         // Price range
@@ -97,6 +104,7 @@ export const searchVehicles = async (req, res) => {
             filters: {
                 query,
                 type,
+                category,
                 minPrice,
                 maxPrice,
                 location,
