@@ -483,3 +483,8 @@ export const updateTerms = async (content: string) => {
     return response.data;
 };
 
+export const getVehiclePriceRange = async () => {
+    const response = await axiosInstance.get("/vehicles/price-range");
+    return response.data;
+};
+

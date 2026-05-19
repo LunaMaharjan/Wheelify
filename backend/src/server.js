@@ -9,6 +9,7 @@ import vendorRoutes from "./routes/vendorRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import contentRoutes from "./routes/contentRoutes.js";
+import priceRoutes from "./routes/priceRoutes.js";
 
 env.config();
 
@@ -37,6 +38,7 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
 });
 
 // Routes
+app.use("/api", priceRoutes);
 app.use("/api", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/vendor", vendorRoutes);

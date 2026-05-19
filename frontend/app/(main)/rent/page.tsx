@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter, X, Loader2, Car } from "lucide-react";
-import { searchVehicles, SearchVehiclesParams } from "@/lib/api";
+import { searchVehicles, SearchVehiclesParams, getVehiclePriceRange } from "@/lib/api";
 import { toast } from "sonner";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import {
@@ -78,6 +78,7 @@ export default function RentPage() {
         pages: 0
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
 
     const categoryFilterOptions = useMemo(
         () =>
@@ -208,8 +209,35 @@ export default function RentPage() {
         fetchVehicles();
     }, [fetchVehicles]);
 
+    // Fetch price range on mount
+    useEffect(() => {
+        const fetchPriceRange = async () => {
+            try {
+                const response = await getVehiclePriceRange();
+                if (response.success) {
+                    setPriceRange({ min: response.minPrice, max: response.maxPrice });
+                }
+            } catch (error) {
+                console.error("Failed to fetch price range:", error);
+            }
+        };
+        fetchPriceRange();
+    }, []);
+
     // Handle search button click
     const handleSearch = () => {
+        if (localMinPrice && parseInt(localMinPrice) < priceRange.min) {
+            toast.error(`Minimum price must be ${priceRange.min} or greater.`);
+            return;
+        }
+        if (localMaxPrice && parseInt(localMaxPrice) > priceRange.max) {
+            toast.error(`Maximum price cannot be greater than ${priceRange.max}.`);
+            return;
+        }
+        if (localMaxPrice && localMinPrice && parseInt(localMaxPrice) < parseInt(localMinPrice)) {
+            toast.error("Maximum price cannot be less than minimum price.");
+            return;
+        }
         updateURLParams({
             q: localSearchQuery,
             type: localType,
@@ -497,7 +525,7 @@ export default function RentPage() {
                     )}
                     {(minPrice || maxPrice) && (
                         <Badge variant="secondary" className="gap-1">
-                            Price: {minPrice ? `$${minPrice}` : "$0"} - {maxPrice ? `$${maxPrice}` : "∞"}
+                            Price: {minPrice ? `Rs.${minPrice}` : "Rs.0"} - {maxPrice ? `Rs.${maxPrice}` : "∞"}
                             <button onClick={() => {
                                 removeFilter("minPrice");
                                 removeFilter("maxPrice");
