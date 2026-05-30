@@ -37,15 +37,6 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
   console.error("Error connecting to MongoDB:", error);
 });
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "https://wheelify-r3h9.vercel.app",
-    ],
-    credentials: true,
-  })
-);
 
 // Routes
 app.use("/api", priceRoutes);
